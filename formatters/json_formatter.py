@@ -1,9 +1,13 @@
 import json
 
-def jsonl_to_human_readable_json(jsonl_file, output_json_file):
+def jsonl_to_human_readable_json(jsonl_file, output_json_file, group_by=None):
     """
-    Преобразует JSONL в человекопонятный JSON.
-    Группирует данные по файлам.
+    Универсальная функция для преобразования JSONL в человекопонятный JSON.
+
+    :param jsonl_file: Путь к входному файлу JSONL.
+    :param output_json_file: Путь к выходному файлу JSON.
+    :param group_by: Ключ для группировки данных (например, "file_path" или "metadata.source").
+                     Если None, данные сохраняются как есть.
     """
     grouped_data = {}
 
@@ -12,33 +16,30 @@ def jsonl_to_human_readable_json(jsonl_file, output_json_file):
         for line in file:
             chunk = json.loads(line.strip())
 
-            # Проверить наличие обязательных ключей
-            if "metadata" not in chunk or "source" not in chunk["metadata"]:
-                raise KeyError(f"Missing required keys in chunk: {chunk}")
+            if group_by:
+                # Достать значение для группировки
+                group_key = chunk
+                for part in group_by.split('.'):
+                    group_key = group_key.get(part)
+                    if group_key is None:
+                        raise KeyError(f"Grouping key '{group_by}' not found in chunk: {chunk}")
 
-            file_path = chunk["metadata"]["source"]
+                # Инициализация группы, если её ещё нет
+                if group_key not in grouped_data:
+                    grouped_data[group_key] = {
+                        "group_key": group_key,
+                        "items": []
+                    }
 
-            # Группировка по пути файла
-            if file_path not in grouped_data:
-                grouped_data[file_path] = {
-                    "file_path": file_path,
-                    "file_name": chunk["metadata"].get("file_name", ""),
-                    "file_extension": chunk["metadata"].get("file_extension", ""),
-                    "chunks": []
-                }
+                # Добавление текущего чанка в группу
+                grouped_data[group_key]["items"].append(chunk)
+            else:
+                # Если группировка не указана, добавляем в общий список
+                grouped_data.setdefault("ungrouped", []).append(chunk)
 
-            # Добавление данных чанка
-            grouped_data[file_path]["chunks"].append({
-                "id": chunk["id"],
-                "type": chunk["type"],
-                "name": chunk.get("name"),
-                "start_line": chunk.get("start_line"),
-                "end_line": chunk.get("end_line"),
-                "description": chunk.get("description"),
-                "code": chunk.get("code"),
-                "timestamp": chunk["metadata"].get("timestamp")
-            })
+    # Формирование выходной структуры
+    output_data = grouped_data if group_by else grouped_data["ungrouped"]
 
     # Сохранение в человекопонятный JSON
     with open(output_json_file, 'w', encoding='utf-8') as json_file:
-        json.dump(list(grouped_data.values()), json_file, ensure_ascii=False, indent=4)
+        json.dump(output_data, json_file, ensure_ascii=False, indent=4)

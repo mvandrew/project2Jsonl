@@ -14,11 +14,7 @@ def process_python_files(source_dir, excluded_dirs, output_file, human_readable_
     all_chunks = []
     for file_path in python_files:
         # Парсинг Python файла на чанки
-        chunks = parse_python_code(file_path)
-        for chunk in chunks:
-            # Добавить путь к файлу относительно корня проекта
-            relative_path = os.path.relpath(file_path, start=source_dir)
-            chunk["file_path"] = relative_path
+        chunks = parse_python_code(file_path, source_dir)  # Передаём source_dir для относительных путей
         all_chunks.extend(chunks)
 
     # Сохранить результат в JSONL

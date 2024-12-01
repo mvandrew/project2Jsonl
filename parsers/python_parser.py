@@ -7,8 +7,13 @@ def generate_id():
     """Генерирует уникальный идентификатор."""
     return str(uuid.uuid4())
 
-def parse_python_code(file_path):
-    """Парсит Python-файл и извлекает классы, функции, глобальные переменные."""
+def parse_python_code(file_path, source_dir):
+    """
+    Парсит Python-файл и извлекает классы, функции, глобальные переменные.
+
+    :param file_path: Путь к файлу, который нужно разобрать.
+    :param source_dir: Корень проекта, относительно которого формируется путь.
+    """
     with open(file_path, 'r', encoding='utf-8') as file:
         content = file.read()
 
@@ -17,6 +22,8 @@ def parse_python_code(file_path):
     # Получение текущего времени в часовом поясе ОС
     timestamp = datetime.now().isoformat()
 
+    # Формирование относительного пути
+    relative_path = os.path.relpath(file_path, start=source_dir)
     file_name, file_extension = os.path.splitext(os.path.basename(file_path))
 
     for node in ast.walk(tree):
@@ -31,7 +38,7 @@ def parse_python_code(file_path):
                 "description": f"{chunk_type.capitalize()} definition: {node.name}",
                 "code": ast.get_source_segment(content, node),
                 "metadata": {
-                    "source": os.path.relpath(file_path),
+                    "source": relative_path,
                     "file_name": file_name,
                     "file_extension": file_extension,
                     "file_type": "python",
