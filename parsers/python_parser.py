@@ -1,4 +1,11 @@
 import ast
+import os
+import uuid
+from datetime import datetime
+
+def generate_id():
+    """Генерирует уникальный идентификатор."""
+    return str(uuid.uuid4())
 
 def parse_python_code(file_path):
     """Парсит Python-файл и извлекает классы, функции, глобальные переменные."""
@@ -7,27 +14,29 @@ def parse_python_code(file_path):
 
     tree = ast.parse(content)
     chunks = []
+    # Получение текущего времени в часовом поясе ОС
+    timestamp = datetime.now().isoformat()
 
-    # Извлечение классов
+    file_name, file_extension = os.path.splitext(os.path.basename(file_path))
+
     for node in ast.walk(tree):
-        if isinstance(node, ast.ClassDef):
+        if isinstance(node, ast.ClassDef) or isinstance(node, ast.FunctionDef):
+            chunk_type = "class" if isinstance(node, ast.ClassDef) else "function"
             chunks.append({
-                "chunk_type": "class",
+                "id": generate_id(),
+                "type": chunk_type,
                 "name": node.name,
                 "start_line": node.lineno,
                 "end_line": getattr(node, 'end_lineno', None),
+                "description": f"{chunk_type.capitalize()} definition: {node.name}",
                 "code": ast.get_source_segment(content, node),
-                "description": f"Class definition: {node.name}"
-            })
-
-        elif isinstance(node, ast.FunctionDef):
-            chunks.append({
-                "chunk_type": "function",
-                "name": node.name,
-                "start_line": node.lineno,
-                "end_line": getattr(node, 'end_lineno', None),
-                "code": ast.get_source_segment(content, node),
-                "description": f"Function definition: {node.name}"
+                "metadata": {
+                    "source": os.path.relpath(file_path),
+                    "file_name": file_name,
+                    "file_extension": file_extension,
+                    "file_type": "python",
+                    "timestamp": timestamp
+                }
             })
 
     return chunks

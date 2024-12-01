@@ -11,21 +11,32 @@ def jsonl_to_human_readable_json(jsonl_file, output_json_file):
     with open(jsonl_file, 'r', encoding='utf-8') as file:
         for line in file:
             chunk = json.loads(line.strip())
-            file_path = chunk['file_path']
+
+            # Проверить наличие обязательных ключей
+            if "metadata" not in chunk or "source" not in chunk["metadata"]:
+                raise KeyError(f"Missing required keys in chunk: {chunk}")
+
+            file_path = chunk["metadata"]["source"]
 
             # Группировка по пути файла
             if file_path not in grouped_data:
                 grouped_data[file_path] = {
                     "file_path": file_path,
+                    "file_name": chunk["metadata"].get("file_name", ""),
+                    "file_extension": chunk["metadata"].get("file_extension", ""),
                     "chunks": []
                 }
+
+            # Добавление данных чанка
             grouped_data[file_path]["chunks"].append({
-                "type": chunk["chunk_type"],
+                "id": chunk["id"],
+                "type": chunk["type"],
                 "name": chunk.get("name"),
                 "start_line": chunk.get("start_line"),
                 "end_line": chunk.get("end_line"),
                 "description": chunk.get("description"),
-                "code": chunk.get("code")
+                "code": chunk.get("code"),
+                "timestamp": chunk["metadata"].get("timestamp")
             })
 
     # Сохранение в человекопонятный JSON
