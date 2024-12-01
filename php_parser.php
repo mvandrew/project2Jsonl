@@ -21,63 +21,69 @@ class DependencyVisitor extends NodeVisitorAbstract {
     }
 
     public function enterNode(Node $node) {
-        // Сбор зависимостей (use statements)
-        if ($node instanceof Node\Stmt\Use_) {
-            foreach ($node->uses as $use) {
-                $this->dependencies[] = $use->name->toString();
+        try {
+            // Сбор зависимостей (use statements)
+            if ($node instanceof Node\Stmt\Use_) {
+                foreach ($node->uses as $use) {
+                    $this->dependencies[] = $use->name->toString();
+                }
             }
-        }
 
-        // Сбор пространства имен
-        if ($node instanceof Node\Stmt\Namespace_) {
-            $this->namespace = $node->name ? $node->name->toString() : null;
-        }
+            // Сбор пространства имен
+            if ($node instanceof Node\Stmt\Namespace_) {
+                $this->namespace = $node->name ? $node->name->toString() : null;
+            }
 
-        // Сбор классов, их методов и свойств
-        if ($node instanceof Node\Stmt\Class_) {
-            $class_data = [
-                'name' => $node->name->toString(),
-                'code' => $this->prettyPrinter->prettyPrint([$node]),
-                'methods' => [], // Место для хранения методов
-                'properties' => [] // Место для хранения свойств
-            ];
+            // Сбор классов, их методов и свойств
+            if ($node instanceof Node\Stmt\Class_) {
+                $class_data = [
+                    'name' => $node->name->toString(),
+                    'code' => $this->prettyPrinter->prettyPrint([$node]),
+                    'methods' => [], // Место для хранения методов
+                    'properties' => [] // Место для хранения свойств
+                ];
 
-            // Извлекаем свойства класса
-            foreach ($node->stmts as $stmt) {
-                if ($stmt instanceof Node\Stmt\Property) {
-                    foreach ($stmt->props as $prop) {
-                        $class_data['properties'][] = [
-                            'name' => $prop->name->toString(),
-                            'type' => $stmt->type ? $stmt->type->toString() : null,
+                // Извлекаем свойства класса
+                foreach ($node->stmts as $stmt) {
+                    if ($stmt instanceof Node\Stmt\Property) {
+                        foreach ($stmt->props as $prop) {
+                            $class_data['properties'][] = [
+                                'name' => $prop->name->toString(),
+                                'type' => $stmt->type ? $stmt->type->toString() : null,
+                                'modifiers' => $this->getModifiers($stmt),
+                                'default_value' => $prop->default ? $this->prettyPrinter->prettyPrintExpr($prop->default) : null
+                            ];
+                        }
+                    }
+
+                    // Извлекаем методы класса
+                    if ($stmt instanceof Node\Stmt\ClassMethod) {
+                        $class_data['methods'][] = [
+                            'name' => $stmt->name->toString(),
                             'modifiers' => $this->getModifiers($stmt),
-                            'default_value' => $prop->default ? $this->prettyPrinter->prettyPrintExpr($prop->default) : null
+                            'code' => $this->prettyPrinter->prettyPrint([$stmt]),
+                            'start_line' => $stmt->getStartLine(),
+                            'end_line' => $stmt->getEndLine()
                         ];
                     }
                 }
 
-                // Извлекаем методы класса
-                if ($stmt instanceof Node\Stmt\ClassMethod) {
-                    $class_data['methods'][] = [
-                        'name' => $stmt->name->toString(),
-                        'modifiers' => $this->getModifiers($stmt),
-                        'code' => $this->prettyPrinter->prettyPrint([$stmt]),
-                        'start_line' => $stmt->getStartLine(),
-                        'end_line' => $stmt->getEndLine()
-                    ];
-                }
+                $this->classes[] = $class_data;
             }
 
-            $this->classes[] = $class_data;
-        }
-
-        // Сбор глобальных функций
-        if ($node instanceof Node\Stmt\Function_) {
-            $this->functions[] = [
-                'name' => $node->name->toString(),
-                'code' => $this->prettyPrinter->prettyPrint([$node]),
-                'start_line' => $node->getStartLine(),
-                'end_line' => $node->getEndLine()
-            ];
+            // Сбор глобальных функций
+            if ($node instanceof Node\Stmt\Function_) {
+                $this->functions[] = [
+                    'name' => $node->name->toString(),
+                    'code' => $this->prettyPrinter->prettyPrint([$node]),
+                    'start_line' => $node->getStartLine(),
+                    'end_line' => $node->getEndLine()
+                ];
+            }
+        } catch (Throwable $e) {
+            // Логирование ошибок
+            error_log("Error processing node: " . $e->getMessage());
+            error_log("Node type: " . get_class($node));
         }
     }
 
