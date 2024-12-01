@@ -33,21 +33,51 @@ class DependencyVisitor extends NodeVisitorAbstract {
             $this->namespace = $node->name ? $node->name->toString() : null;
         }
 
-        // Сбор классов
+        // Сбор классов и их методов
         if ($node instanceof Node\Stmt\Class_) {
-            $this->classes[] = [
+            $class_data = [
                 'name' => $node->name->toString(),
-                'code' => $this->prettyPrinter->prettyPrint([$node])
+                'code' => $this->prettyPrinter->prettyPrint([$node]),
+                'methods' => [] // Место для хранения методов
             ];
+
+            // Извлекаем методы класса
+            foreach ($node->stmts as $stmt) {
+                if ($stmt instanceof Node\Stmt\ClassMethod) {
+                    $class_data['methods'][] = [
+                        'name' => $stmt->name->toString(),
+                        'modifiers' => $this->getModifiers($stmt),
+                        'code' => $this->prettyPrinter->prettyPrint([$stmt]),
+                        'start_line' => $stmt->getStartLine(),
+                        'end_line' => $stmt->getEndLine()
+                    ];
+                }
+            }
+
+            $this->classes[] = $class_data;
         }
 
-        // Сбор функций
+        // Сбор глобальных функций
         if ($node instanceof Node\Stmt\Function_) {
             $this->functions[] = [
                 'name' => $node->name->toString(),
-                'code' => $this->prettyPrinter->prettyPrint([$node])
+                'code' => $this->prettyPrinter->prettyPrint([$node]),
+                'start_line' => $node->getStartLine(),
+                'end_line' => $node->getEndLine()
             ];
         }
+    }
+
+    private function getModifiers(Node\Stmt\ClassMethod $method) {
+        // Извлекаем модификаторы метода
+        $modifiers = [];
+        if ($method->isPublic()) $modifiers[] = 'public';
+        if ($method->isProtected()) $modifiers[] = 'protected';
+        if ($method->isPrivate()) $modifiers[] = 'private';
+        if ($method->isStatic()) $modifiers[] = 'static';
+        if ($method->isFinal()) $modifiers[] = 'final';
+        if ($method->isAbstract()) $modifiers[] = 'abstract';
+        return $modifiers;
     }
 }
 

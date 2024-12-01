@@ -59,79 +59,80 @@ def parse_php_code(file_path, source_dir, php_parser_script="php_parser.php"):
     file_name, file_extension = os.path.splitext(os.path.basename(file_path))
 
     # Формируем данные о классах
-    for class_name in parsed_data.get("classes", []):
-        chunks.append({
+    for class_data in parsed_data.get("classes", []):
+        class_chunk = {
             "id": generate_id(),
             "type": "class",
-            "name": class_name,
-            "start_line": None,  # Данные о строках недоступны в парсере
-            "end_line": None,
-            "description": f"Class definition: {class_name}",
-            "code": None,  # Исходный код недоступен в текущем парсере
-            "metadata": {
-                "source": relative_path,
-                "file_name": file_name,
-                "file_extension": file_extension,
-                "file_type": "php",
-                "timestamp": timestamp
+            "name": class_data["name"],  # Имя класса
+            "description": f"Class definition: {class_data['name']}",
+            "code": class_data.get("code"),  # Исходный код класса
+            "methods": []
+        }
+
+        # Обрабатываем методы класса, если они есть
+        for method_data in class_data.get("methods", []):
+            method_chunk = {
+                "id": generate_id(),
+                "type": "method",
+                "name": method_data["name"],
+                "description": f"Method {method_data['name']} in class {class_data['name']}",
+                "code": method_data.get("code"),
+                "start_line": method_data.get("start_line"),
+                "end_line": method_data.get("end_line"),
             }
-        })
+            class_chunk["methods"].append(method_chunk)
+
+        chunks.append(class_chunk)
 
     # Формируем данные о функциях
-    for function_name in parsed_data.get("functions", []):
-        chunks.append({
+    for function_data in parsed_data.get("functions", []):
+        function_chunk = {
             "id": generate_id(),
             "type": "function",
-            "name": function_name,
-            "start_line": None,
-            "end_line": None,
-            "description": f"Function definition: {function_name}",
-            "code": None,
-            "metadata": {
-                "source": relative_path,
-                "file_name": file_name,
-                "file_extension": file_extension,
-                "file_type": "php",
-                "timestamp": timestamp
-            }
-        })
+            "name": function_data["name"],
+            "description": f"Global function {function_data['name']}",
+            "code": function_data.get("code"),
+            "start_line": function_data.get("start_line"),
+            "end_line": function_data.get("end_line"),
+        }
+        chunks.append(function_chunk)
 
     # Формируем данные о зависимостях (use statements)
-    for dependency in parsed_data.get("dependencies", []):
-        chunks.append({
+    dependencies = parsed_data.get("dependencies", [])
+    if dependencies:
+        dependency_chunk = {
             "id": generate_id(),
-            "type": "dependency",
-            "name": dependency,
-            "start_line": None,
-            "end_line": None,
-            "description": f"Dependency: {dependency}",
-            "code": None,
-            "metadata": {
-                "source": relative_path,
-                "file_name": file_name,
-                "file_extension": file_extension,
-                "file_type": "php",
-                "timestamp": timestamp
-            }
-        })
+            "type": "dependencies",
+            "description": "List of dependencies",
+            "dependencies": dependencies,
+        }
+        chunks.append(dependency_chunk)
 
     # Формируем данные о пространстве имен
     if parsed_data.get("namespace"):
-        chunks.append({
+        namespace_chunk = {
             "id": generate_id(),
             "type": "namespace",
             "name": parsed_data["namespace"],
-            "start_line": None,
-            "end_line": None,
             "description": f"Namespace: {parsed_data['namespace']}",
-            "code": None,
-            "metadata": {
-                "source": relative_path,
-                "file_name": file_name,
-                "file_extension": file_extension,
-                "file_type": "php",
-                "timestamp": timestamp
-            }
-        })
+        }
+        chunks.append(namespace_chunk)
 
-    return chunks
+    # Формируем итоговую структуру для файла
+    file_metadata = {
+        "id": generate_id(),
+        "type": "file",
+        "name": file_name,
+        "description": f"PHP file: {file_name}",
+        "code": None,  # Опционально можно добавить весь исходный код файла
+        "metadata": {
+            "source": relative_path,
+            "file_name": file_name,
+            "file_extension": file_extension,
+            "file_type": "php",
+            "timestamp": timestamp
+        },
+        "chunks": chunks
+    }
+
+    return [file_metadata]

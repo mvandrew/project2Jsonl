@@ -87,55 +87,65 @@ class Yii2Extractor(BaseExtractor):
                     "chunks": []  # Здесь будут вложенные классы, функции и зависимости
                 }
 
-                # Добавляем классы как вложенные чанки
-                for class_data in parsed_data.get("classes", []):
-                    class_chunk = {
-                        "id": generate_id(),
-                        "type": "class",
-                        "name": class_data.get("name"),
-                        "description": f"Class {class_data.get('name')}",
-                        "code": class_data.get("code"),
-                        "methods": [],  # Методы будут вложены
-                    }
-
-                    # Разделяем методы как вложенные чанки в класс
-                    for method_data in class_data.get("methods", []):
-                        method_chunk = {
+                # Парсим элементы из parsed_data
+                for element in parsed_data:
+                    if element.get("type") == "class":  # Обработка классов
+                        class_chunk = {
                             "id": generate_id(),
-                            "type": "method",
-                            "name": method_data.get("name"),
-                            "description": f"Method {method_data.get('name')} in class {class_data.get('name')}",
-                            "code": method_data.get("code"),
-                            "start_line": method_data.get("start_line"),
-                            "end_line": method_data.get("end_line"),
+                            "type": "class",
+                            "name": element["name"],
+                            "description": f"Class {element['name']}",
+                            "code": element["code"],
+                            "methods": []  # Методы будут вложены
                         }
-                        class_chunk["methods"].append(method_chunk)
 
-                    file_metadata["chunks"].append(class_chunk)
+                        # Обрабатываем методы класса
+                        for method_data in element.get("methods", []):
+                            # Формируем описание метода, включая модификаторы
+                            modifiers = method_data.get("modifiers", [])
+                            modifiers_str = " ".join(modifiers) if modifiers else "default"
+                            method_chunk = {
+                                "id": generate_id(),
+                                "type": "method",
+                                "name": method_data["name"],
+                                "description": f"{modifiers_str.capitalize()} method {method_data['name']} in class {element['name']}",
+                                "code": method_data["code"],
+                                "start_line": method_data.get("start_line"),
+                                "end_line": method_data.get("end_line"),
+                            }
+                            class_chunk["methods"].append(method_chunk)
 
-                # Добавляем глобальные функции как вложенные чанки в файл
-                for function_data in parsed_data.get("functions", []):
-                    function_chunk = {
-                        "id": generate_id(),
-                        "type": "function",
-                        "name": function_data.get("name"),
-                        "description": f"Global function {function_data.get('name')}",
-                        "code": function_data.get("code"),
-                        "start_line": function_data.get("start_line"),
-                        "end_line": function_data.get("end_line"),
-                    }
-                    file_metadata["chunks"].append(function_chunk)
+                        file_metadata["chunks"].append(class_chunk)
 
-                # Добавляем зависимости как отдельный список
-                dependencies = parsed_data.get("dependencies", [])
-                if dependencies:
-                    dependency_chunk = {
-                        "id": generate_id(),
-                        "type": "dependencies",
-                        "description": "List of dependencies",
-                        "dependencies": dependencies
-                    }
-                    file_metadata["chunks"].append(dependency_chunk)
+                    elif element.get("type") == "function":  # Обработка глобальных функций
+                        function_chunk = {
+                            "id": generate_id(),
+                            "type": "function",
+                            "name": element["name"],
+                            "description": f"Global function {element['name']}",
+                            "code": element["code"],
+                            "start_line": element.get("start_line"),
+                            "end_line": element.get("end_line"),
+                        }
+                        file_metadata["chunks"].append(function_chunk)
+
+                    elif element.get("type") == "dependency":  # Обработка зависимостей
+                        dependency_chunk = {
+                            "id": generate_id(),
+                            "type": "dependency",
+                            "name": element["name"],
+                            "description": f"Dependency: {element['name']}",
+                        }
+                        file_metadata["chunks"].append(dependency_chunk)
+
+                    elif element.get("type") == "namespace":  # Обработка пространства имен
+                        namespace_chunk = {
+                            "id": generate_id(),
+                            "type": "namespace",
+                            "name": element["name"],
+                            "description": f"Namespace: {element['name']}"
+                        }
+                        file_metadata["chunks"].append(namespace_chunk)
 
                 # Сохраняем результат
                 self.save_chunks([file_metadata], f"yii2_{directory_type}")
