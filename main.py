@@ -12,6 +12,7 @@ OUTPUT_DIR = os.getenv("OUTPUT_DIR")
 EXCLUDED_DIRS = os.getenv("EXCLUDED_DIRS", "").split(",")
 PROJECT_PREFIX = os.getenv("PROJECT_PREFIX", "project")
 CHUNK_SIZE = int(os.getenv("CHUNK_SIZE", "5000"))
+PROJECT_TYPES = os.getenv("PROJECT_TYPES", "").split(",")  # Список типов проектов
 
 # Настройка глобального логгера
 logger = setup_global_logger(PROJECT_PREFIX)
@@ -20,19 +21,34 @@ logger = setup_global_logger(PROJECT_PREFIX)
 json_manager = JSONManager(output_directory=OUTPUT_DIR, project_prefix=PROJECT_PREFIX)
 
 
-def main():
-    logger.info("Начало обработки проекта...")
-    try:
-        # Обработка Python файлов
+def process_project():
+    """
+    Выполняет обработку проекта, основываясь на типах проектов.
+    """
+    if "python" in PROJECT_TYPES:
         logger.info("Обработка Python файлов...")
-        # process_python_files(SOURCE_DIR, EXCLUDED_DIRS, json_manager, CHUNK_SIZE)
+        process_python_files(SOURCE_DIR, EXCLUDED_DIRS, json_manager, CHUNK_SIZE)
         logger.info("Обработка Python завершена.")
 
-        # Обработка Yii2 файлов
+    if "yii2" in PROJECT_TYPES:
         logger.info("Обработка Yii2 файлов...")
         yii2_extractor = Yii2Extractor(SOURCE_DIR, OUTPUT_DIR, PROJECT_PREFIX, json_manager, CHUNK_SIZE, EXCLUDED_DIRS)
         yii2_extractor.extract()
         logger.info("Обработка Yii2 завершена.")
+
+    # Здесь можно добавить обработку других типов проектов:
+    # if "laravel" in PROJECT_TYPES:
+    #     logger.info("Обработка Laravel файлов...")
+    #     laravel_extractor = LaravelExtractor(SOURCE_DIR, OUTPUT_DIR, PROJECT_PREFIX, json_manager, CHUNK_SIZE, EXCLUDED_DIRS)
+    #     laravel_extractor.extract()
+    #     logger.info("Обработка Laravel завершена.")
+
+
+def main():
+    logger.info("Начало обработки проекта...")
+    try:
+        # Обработка проекта на основе типов
+        process_project()
 
         # Сохранение всех данных
         logger.info("Сохранение всех данных...")
