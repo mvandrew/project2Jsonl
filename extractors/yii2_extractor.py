@@ -31,16 +31,28 @@ class Yii2Extractor(BaseExtractor):
         """
         Определяет тип каталога по Yii2 структуре.
         :param directory: Путь к каталогу.
-        :return: Тип каталога (controllers, models, views, config) или None.
+        :return: Тип каталога (controllers, models, views, config, migrations, widgets, helpers, modules, assets) или None.
         """
-        if "controllers" in directory.lower():
+        directory_lower = directory.lower()
+
+        if "controllers" in directory_lower:
             return "controllers"
-        elif "models" in directory.lower():
+        elif "models" in directory_lower:
             return "models"
-        elif "views" in directory.lower():
+        elif "views" in directory_lower:
             return "views"
-        elif "config" in directory.lower():
+        elif "config" in directory_lower:
             return "config"
+        elif "migrations" in directory_lower:
+            return "migrations"
+        elif "widgets" in directory_lower:
+            return "widgets"
+        elif "helpers" in directory_lower:
+            return "helpers"
+        elif "modules" in directory_lower:
+            return "modules"
+        elif "assets" in directory_lower:
+            return "assets"
         else:
             return None
 
