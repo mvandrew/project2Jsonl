@@ -1,20 +1,21 @@
 import os
 from abc import ABC
-
-from formatters.json_formatter import jsonl_to_human_readable_json
-from formatters.jsonl_formatter import save_to_jsonl
+from formatters.json_manager import JSONManager
 from utils.logger import global_logger as logger
+
 
 class BaseExtractor(ABC):
     """
     Базовый класс для всех обработчиков исходного кода.
     """
-    def __init__(self, project_root, output_dir, prefix, excluded_dirs=None):
+
+    def __init__(self, project_root, output_dir, prefix, json_manager, excluded_dirs=None):
         """
         Инициализация базового обработчика.
         :param project_root: Путь к корневой директории проекта.
         :param output_dir: Путь к директории для сохранения результатов.
         :param prefix: Префикс для выходных файлов.
+        :param json_manager: Экземпляр JSONManager для управления данными.
         :param excluded_dirs: Список каталогов, которые следует исключить.
         """
         # Каталоги, которые всегда должны игнорироваться
@@ -26,6 +27,7 @@ class BaseExtractor(ABC):
         self.project_root = project_root
         self.output_dir = output_dir
         self.prefix = prefix
+        self.json_manager = json_manager  # Менеджер для сохранения данных
 
     def is_excluded(self, path):
         """
@@ -40,21 +42,11 @@ class BaseExtractor(ABC):
                 return True
         return False
 
-    def save_chunks(self, data, file_suffix, group_by=None):
+    def add_chunks(self, scope, data):
         """
-        Сохранение данных в JSONL и человекопонятный JSON файл.
-        :param data: Список словарей, представляющих чанки данных.
-        :param file_suffix: Суффикс имени файла (например, 'yii2').
-        :param group_by: Ключ для группировки данных в человекопонятный JSON (например, "file_path").
+        Добавляет чанки данных в указанный scope через JSONManager.
+        :param scope: Название области данных.
+        :param data: Данные для добавления.
         """
-        # Сохранение в JSONL
-        output_file = os.path.join(self.output_dir, f"{self.prefix}_{file_suffix}.jsonl")
-        save_to_jsonl(data, output_file)
-        logger.info(f"Сохранено {len(data)} чанков в JSONL файл: {output_file}")
-
-        # Сохранение в человекопонятный JSON
-        human_readable_dir = os.path.join(self.output_dir, "human_readable")
-        os.makedirs(human_readable_dir, exist_ok=True)
-        output_human_file = os.path.join(human_readable_dir, f"{self.prefix}_{file_suffix}.json")
-        jsonl_to_human_readable_json(output_file, output_human_file, group_by=group_by)
-        logger.info(f"Сохранено в человекопонятный JSON файл: {output_human_file}")
+        self.json_manager.add_data(scope, data)
+        logger.info(f"Добавлено {len(data) if isinstance(data, list) else 1} чанков в область: {scope}")

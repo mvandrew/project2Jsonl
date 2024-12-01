@@ -1,14 +1,26 @@
 import os
-from datetime import datetime
-
 from extractors.base_extractor import BaseExtractor
-from parsers.php_parser import parse_php_code, generate_id
+from parsers.php_parser import parse_php_code
 from utils.file_utils import get_all_files
 from utils.logger import global_logger as logger
 
+
 class Yii2Extractor(BaseExtractor):
-    def __init__(self, project_root, output_dir, prefix, chunk_size=5000, excluded_dirs=None):
-        super().__init__(project_root, output_dir, prefix, excluded_dirs)
+    """
+    Обработчик для извлечения данных из Yii2 проектов.
+    """
+
+    def __init__(self, project_root, output_dir, prefix, json_manager, chunk_size=5000, excluded_dirs=None):
+        """
+        Инициализация обработчика Yii2.
+        :param project_root: Путь к корневой директории проекта.
+        :param output_dir: Путь к директории для сохранения результатов.
+        :param prefix: Префикс для выходных файлов.
+        :param json_manager: Экземпляр JSONManager для управления данными.
+        :param chunk_size: Максимальный размер чанков (по умолчанию 5000).
+        :param excluded_dirs: Список каталогов, которые следует исключить.
+        """
+        super().__init__(project_root, output_dir, prefix, json_manager, excluded_dirs)
         self.chunk_size = chunk_size
 
     def extract(self):
@@ -75,8 +87,8 @@ class Yii2Extractor(BaseExtractor):
                     logger.warning(f"Некорректный формат данных от парсера для файла {file_path}. Пропуск.")
                     continue
 
-                # Сохраняем результат в формате JSONL
-                self.save_chunks(parsed_file_data, f"yii2_{directory_type}")
+                # Добавляем данные в область через JSONManager
+                self.add_chunks(f"yii2_{directory_type}", parsed_file_data)
                 logger.info(f"Файл успешно обработан: {file_path}")
 
             except FileNotFoundError as e:

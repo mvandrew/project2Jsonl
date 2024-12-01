@@ -4,7 +4,7 @@ from datetime import datetime
 
 def setup_global_logger(name, log_dir="logs", level=logging.INFO):
     """
-    Настраивает глобальный логгер с сохранением в файл.
+    Настраивает глобальный логгер с сохранением в файл и выводом в консоль.
 
     :param name: Имя логгера.
     :param log_dir: Каталог для хранения лог-файлов.
@@ -33,6 +33,12 @@ def setup_global_logger(name, log_dir="logs", level=logging.INFO):
         file_handler.setLevel(level)
         file_handler.setFormatter(formatter)
         logger.addHandler(file_handler)
+
+        # Обработчик для вывода в консоль
+        console_handler = logging.StreamHandler()
+        console_handler.setLevel(level)
+        console_handler.setFormatter(formatter)
+        logger.addHandler(console_handler)
 
     return logger
 
