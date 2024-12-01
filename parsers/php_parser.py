@@ -66,8 +66,22 @@ def parse_php_code(file_path, source_dir, php_parser_script="php_parser.php"):
             "name": class_data["name"],  # Имя класса
             "description": f"Class definition: {class_data['name']}",
             "code": class_data.get("code"),  # Исходный код класса
-            "methods": []
+            "methods": [],
+            "properties": []
         }
+
+        # Обрабатываем свойства класса, если они есть
+        for property_data in class_data.get("properties", []):
+            property_chunk = {
+                "id": generate_id(),
+                "type": "property",
+                "name": property_data["name"],
+                "description": f"Property {property_data['name']} in class {class_data['name']}",
+                "type": property_data.get("type"),
+                "modifiers": property_data.get("modifiers", []),
+                "default_value": property_data.get("default_value"),
+            }
+            class_chunk["properties"].append(property_chunk)
 
         # Обрабатываем методы класса, если они есть
         for method_data in class_data.get("methods", []):
@@ -79,6 +93,7 @@ def parse_php_code(file_path, source_dir, php_parser_script="php_parser.php"):
                 "code": method_data.get("code"),
                 "start_line": method_data.get("start_line"),
                 "end_line": method_data.get("end_line"),
+                "modifiers": method_data.get("modifiers", [])
             }
             class_chunk["methods"].append(method_chunk)
 

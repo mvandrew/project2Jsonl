@@ -33,16 +33,29 @@ class DependencyVisitor extends NodeVisitorAbstract {
             $this->namespace = $node->name ? $node->name->toString() : null;
         }
 
-        // Сбор классов и их методов
+        // Сбор классов, их методов и свойств
         if ($node instanceof Node\Stmt\Class_) {
             $class_data = [
                 'name' => $node->name->toString(),
                 'code' => $this->prettyPrinter->prettyPrint([$node]),
-                'methods' => [] // Место для хранения методов
+                'methods' => [], // Место для хранения методов
+                'properties' => [] // Место для хранения свойств
             ];
 
-            // Извлекаем методы класса
+            // Извлекаем свойства класса
             foreach ($node->stmts as $stmt) {
+                if ($stmt instanceof Node\Stmt\Property) {
+                    foreach ($stmt->props as $prop) {
+                        $class_data['properties'][] = [
+                            'name' => $prop->name->toString(),
+                            'type' => $stmt->type ? $stmt->type->toString() : null,
+                            'modifiers' => $this->getModifiers($stmt),
+                            'default_value' => $prop->default ? $this->prettyPrinter->prettyPrintExpr($prop->default) : null
+                        ];
+                    }
+                }
+
+                // Извлекаем методы класса
                 if ($stmt instanceof Node\Stmt\ClassMethod) {
                     $class_data['methods'][] = [
                         'name' => $stmt->name->toString(),
@@ -68,15 +81,15 @@ class DependencyVisitor extends NodeVisitorAbstract {
         }
     }
 
-    private function getModifiers(Node\Stmt\ClassMethod $method) {
-        // Извлекаем модификаторы метода
+    private function getModifiers($node) {
+        // Извлекаем модификаторы (public, protected, private, static, etc.)
         $modifiers = [];
-        if ($method->isPublic()) $modifiers[] = 'public';
-        if ($method->isProtected()) $modifiers[] = 'protected';
-        if ($method->isPrivate()) $modifiers[] = 'private';
-        if ($method->isStatic()) $modifiers[] = 'static';
-        if ($method->isFinal()) $modifiers[] = 'final';
-        if ($method->isAbstract()) $modifiers[] = 'abstract';
+        if ($node instanceof Node\Stmt\ClassMethod || $node instanceof Node\Stmt\Property) {
+            if ($node->isPublic()) $modifiers[] = 'public';
+            if ($node->isProtected()) $modifiers[] = 'protected';
+            if ($node->isPrivate()) $modifiers[] = 'private';
+            if ($node->isStatic()) $modifiers[] = 'static';
+        }
         return $modifiers;
     }
 }
@@ -93,7 +106,7 @@ try {
     // Парсим исходный код
     $stmts = $parser->parse($code);
 
-    // Создаем обхідник для анализа AST
+    // Создаем обходчик для анализа AST
     $traverser = new NodeTraverser();
     $visitor = new DependencyVisitor();
     $traverser->addVisitor($visitor);
