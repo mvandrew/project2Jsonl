@@ -71,8 +71,6 @@ class Yii2Extractor(BaseExtractor):
 
                 # Обновляем метаданные для всех чанков
                 for chunk in chunks:
-                    chunk["chunk_type"] = directory_type
-                    chunk["file_path"] = file_path
                     chunk["description"] = f"{directory_type.capitalize()} code chunk from {os.path.basename(file_path)}"
 
                 # Сохраняем чанки
