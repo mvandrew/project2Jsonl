@@ -67,88 +67,16 @@ class Yii2Extractor(BaseExtractor):
         for file_path in files:
             logger.info(f"Обработка файла: {file_path}")
             try:
-                # Вызываем PHP-парсер
-                parsed_data = parse_php_code(file_path, self.project_root)
+                # Вызываем PHP-парсер для анализа файла
+                parsed_file_data = parse_php_code(file_path, self.project_root)
 
-                # Формируем корневой элемент для файла
-                file_metadata = {
-                    "id": generate_id(),
-                    "type": "file",
-                    "name": os.path.basename(file_path),
-                    "description": f"{directory_type.capitalize()} file: {os.path.basename(file_path)}",
-                    "code": None,  # Исходный код можно опустить, чтобы не перегружать файл
-                    "metadata": {
-                        "source": os.path.relpath(file_path, self.project_root),
-                        "file_name": os.path.splitext(os.path.basename(file_path))[0],
-                        "file_extension": ".php",
-                        "file_type": "php",
-                        "timestamp": datetime.now().isoformat()
-                    },
-                    "chunks": []  # Здесь будут вложенные классы, функции и зависимости
-                }
+                # Проверяем, что парсер вернул корректные данные
+                if not parsed_file_data or not isinstance(parsed_file_data, list):
+                    logger.warning(f"Некорректный формат данных от парсера для файла {file_path}. Пропуск.")
+                    continue
 
-                # Парсим элементы из parsed_data
-                for element in parsed_data:
-                    if element.get("type") == "class":  # Обработка классов
-                        class_chunk = {
-                            "id": generate_id(),
-                            "type": "class",
-                            "name": element["name"],
-                            "description": f"Class {element['name']}",
-                            "code": element["code"],
-                            "methods": []  # Методы будут вложены
-                        }
-
-                        # Обрабатываем методы класса
-                        for method_data in element.get("methods", []):
-                            # Формируем описание метода, включая модификаторы
-                            modifiers = method_data.get("modifiers", [])
-                            modifiers_str = " ".join(modifiers) if modifiers else "default"
-                            method_chunk = {
-                                "id": generate_id(),
-                                "type": "method",
-                                "name": method_data["name"],
-                                "description": f"{modifiers_str.capitalize()} method {method_data['name']} in class {element['name']}",
-                                "code": method_data["code"],
-                                "start_line": method_data.get("start_line"),
-                                "end_line": method_data.get("end_line"),
-                            }
-                            class_chunk["methods"].append(method_chunk)
-
-                        file_metadata["chunks"].append(class_chunk)
-
-                    elif element.get("type") == "function":  # Обработка глобальных функций
-                        function_chunk = {
-                            "id": generate_id(),
-                            "type": "function",
-                            "name": element["name"],
-                            "description": f"Global function {element['name']}",
-                            "code": element["code"],
-                            "start_line": element.get("start_line"),
-                            "end_line": element.get("end_line"),
-                        }
-                        file_metadata["chunks"].append(function_chunk)
-
-                    elif element.get("type") == "dependency":  # Обработка зависимостей
-                        dependency_chunk = {
-                            "id": generate_id(),
-                            "type": "dependency",
-                            "name": element["name"],
-                            "description": f"Dependency: {element['name']}",
-                        }
-                        file_metadata["chunks"].append(dependency_chunk)
-
-                    elif element.get("type") == "namespace":  # Обработка пространства имен
-                        namespace_chunk = {
-                            "id": generate_id(),
-                            "type": "namespace",
-                            "name": element["name"],
-                            "description": f"Namespace: {element['name']}"
-                        }
-                        file_metadata["chunks"].append(namespace_chunk)
-
-                # Сохраняем результат
-                self.save_chunks([file_metadata], f"yii2_{directory_type}")
+                # Сохраняем результат в формате JSONL
+                self.save_chunks(parsed_file_data, f"yii2_{directory_type}")
                 logger.info(f"Файл успешно обработан: {file_path}")
 
             except FileNotFoundError as e:
