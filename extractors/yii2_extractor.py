@@ -1,7 +1,8 @@
 import os
+from datetime import datetime
 
 from extractors.base_extractor import BaseExtractor
-from parsers.php_parser import parse_php_code
+from parsers.php_parser import parse_php_code, generate_id
 from utils.file_utils import get_all_files
 from utils.logger import global_logger as logger
 
@@ -67,15 +68,79 @@ class Yii2Extractor(BaseExtractor):
             logger.info(f"Обработка файла: {file_path}")
             try:
                 # Вызываем PHP-парсер
-                chunks = parse_php_code(file_path, self.project_root)
+                parsed_data = parse_php_code(file_path, self.project_root)
 
-                # Обновляем метаданные для всех чанков
-                for chunk in chunks:
-                    chunk["description"] = f"{directory_type.capitalize()} code chunk from {os.path.basename(file_path)}"
+                # Формируем корневой элемент для файла
+                file_metadata = {
+                    "id": generate_id(),
+                    "type": "file",
+                    "name": os.path.basename(file_path),
+                    "description": f"{directory_type.capitalize()} file: {os.path.basename(file_path)}",
+                    "code": None,  # Исходный код можно опустить, чтобы не перегружать файл
+                    "metadata": {
+                        "source": os.path.relpath(file_path, self.project_root),
+                        "file_name": os.path.splitext(os.path.basename(file_path))[0],
+                        "file_extension": ".php",
+                        "file_type": "php",
+                        "timestamp": datetime.now().isoformat()
+                    },
+                    "chunks": []  # Здесь будут вложенные классы, функции и зависимости
+                }
 
-                # Сохраняем чанки
-                self.save_chunks(chunks, f"yii2_{directory_type}")
+                # Добавляем классы как вложенные чанки
+                for class_data in parsed_data.get("classes", []):
+                    class_chunk = {
+                        "id": generate_id(),
+                        "type": "class",
+                        "name": class_data.get("name"),
+                        "description": f"Class {class_data.get('name')}",
+                        "code": class_data.get("code"),
+                        "methods": [],  # Методы будут вложены
+                    }
+
+                    # Разделяем методы как вложенные чанки в класс
+                    for method_data in class_data.get("methods", []):
+                        method_chunk = {
+                            "id": generate_id(),
+                            "type": "method",
+                            "name": method_data.get("name"),
+                            "description": f"Method {method_data.get('name')} in class {class_data.get('name')}",
+                            "code": method_data.get("code"),
+                            "start_line": method_data.get("start_line"),
+                            "end_line": method_data.get("end_line"),
+                        }
+                        class_chunk["methods"].append(method_chunk)
+
+                    file_metadata["chunks"].append(class_chunk)
+
+                # Добавляем глобальные функции как вложенные чанки в файл
+                for function_data in parsed_data.get("functions", []):
+                    function_chunk = {
+                        "id": generate_id(),
+                        "type": "function",
+                        "name": function_data.get("name"),
+                        "description": f"Global function {function_data.get('name')}",
+                        "code": function_data.get("code"),
+                        "start_line": function_data.get("start_line"),
+                        "end_line": function_data.get("end_line"),
+                    }
+                    file_metadata["chunks"].append(function_chunk)
+
+                # Добавляем зависимости как отдельный список
+                dependencies = parsed_data.get("dependencies", [])
+                if dependencies:
+                    dependency_chunk = {
+                        "id": generate_id(),
+                        "type": "dependencies",
+                        "description": "List of dependencies",
+                        "dependencies": dependencies
+                    }
+                    file_metadata["chunks"].append(dependency_chunk)
+
+                # Сохраняем результат
+                self.save_chunks([file_metadata], f"yii2_{directory_type}")
                 logger.info(f"Файл успешно обработан: {file_path}")
+
             except FileNotFoundError as e:
                 logger.error(f"Ошибка: PHP парсер не найден. {e}")
             except RuntimeError as e:
