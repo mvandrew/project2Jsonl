@@ -1,8 +1,9 @@
 import os
-import logging
-from abc import ABC, abstractmethod
-from formatters.jsonl_formatter import save_to_jsonl
+from abc import ABC
+
 from formatters.json_formatter import jsonl_to_human_readable_json
+from formatters.jsonl_formatter import save_to_jsonl
+from utils.logger import global_logger as logger
 
 class BaseExtractor(ABC):
     """
@@ -25,22 +26,6 @@ class BaseExtractor(ABC):
         self.project_root = project_root
         self.output_dir = output_dir
         self.prefix = prefix
-        self.logger = logging.getLogger(self.__class__.__name__)
-        self.setup_logging()
-
-    def setup_logging(self):
-        """
-        Настройка логирования.
-        """
-        logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-
-    @abstractmethod
-    def extract(self):
-        """
-        Абстрактный метод для извлечения данных.
-        Должен быть реализован в подклассах.
-        """
-        pass
 
     def is_excluded(self, path):
         """
@@ -60,16 +45,16 @@ class BaseExtractor(ABC):
         Сохранение данных в JSONL и человекопонятный JSON файл.
         :param data: Список словарей, представляющих чанки данных.
         :param file_suffix: Суффикс имени файла (например, 'yii2').
-        :param group_by: Ключ для группировки данных в человекопонятном JSON (например, "file_path").
+        :param group_by: Ключ для группировки данных в человекопонятный JSON (например, "file_path").
         """
         # Сохранение в JSONL
         output_file = os.path.join(self.output_dir, f"{self.prefix}_{file_suffix}.jsonl")
         save_to_jsonl(data, output_file)
-        self.logger.info(f"Сохранено {len(data)} чанков в JSONL файл: {output_file}")
+        logger.info(f"Сохранено {len(data)} чанков в JSONL файл: {output_file}")
 
         # Сохранение в человекопонятный JSON
         human_readable_dir = os.path.join(self.output_dir, "human_readable")
         os.makedirs(human_readable_dir, exist_ok=True)
         output_human_file = os.path.join(human_readable_dir, f"{self.prefix}_{file_suffix}.json")
         jsonl_to_human_readable_json(output_file, output_human_file, group_by=group_by)
-        self.logger.info(f"Сохранено в человекопонятный JSON файл: {output_human_file}")
+        logger.info(f"Сохранено в человекопонятный JSON файл: {output_human_file}")
