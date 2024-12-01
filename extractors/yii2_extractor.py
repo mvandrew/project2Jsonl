@@ -22,7 +22,11 @@ class Yii2Extractor(BaseExtractor):
             # Отфильтровываем каталоги, которые следует исключить
             dirs[:] = [
                 d for d in dirs
-                if d not in excluded_names and not any(excluded in os.path.join(root, d) for excluded in excluded_names)
+                if not any(
+                    os.path.abspath(os.path.join(root, d)).startswith(
+                        os.path.abspath(os.path.join(self.project_root, excluded)))
+                    for excluded in excluded_names
+                )
             ]
 
             # Определяем типы Yii2 (контроллеры, модели, конфиги, представления)

@@ -16,10 +16,15 @@ class BaseExtractor(ABC):
         :param prefix: Префикс для выходных файлов.
         :param excluded_dirs: Список каталогов, которые следует исключить.
         """
+        # Каталоги, которые всегда должны игнорироваться
+        default_excluded_dirs = [".git", ".idea"]
+
+        # Объединяем переданные исключенные каталоги с дефолтными
+        self.excluded_dirs = (excluded_dirs or []) + default_excluded_dirs
+
         self.project_root = project_root
         self.output_dir = output_dir
         self.prefix = prefix
-        self.excluded_dirs = excluded_dirs or []  # Устанавливаем пустой список, если значение None
         self.logger = logging.getLogger(self.__class__.__name__)
         self.setup_logging()
 
