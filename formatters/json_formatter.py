@@ -37,6 +37,10 @@ def jsonl_to_human_readable_json(jsonl_file, output_json_file, group_by=None):
                 # Если группировка не указана, добавляем в общий список
                 grouped_data.setdefault("ungrouped", []).append(chunk)
 
+    # Проверяем, есть ли данные
+    if not grouped_data:
+        grouped_data = {"ungrouped": []}  # Добавляем пустую группу, если данные отсутствуют
+
     # Формирование выходной структуры
     output_data = grouped_data if group_by else grouped_data["ungrouped"]
 

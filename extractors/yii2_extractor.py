@@ -1,12 +1,12 @@
 import os
 from extractors.base_extractor import BaseExtractor
+from parsers.php_parser import parse_php_code
 from utils.file_utils import get_all_files
 
 class Yii2Extractor(BaseExtractor):
     def __init__(self, project_root, output_dir, prefix, chunk_size=5000, excluded_dirs=None):
-        super().__init__(project_root, output_dir, prefix)
+        super().__init__(project_root, output_dir, prefix, excluded_dirs)
         self.chunk_size = chunk_size
-        self.excluded_dirs = excluded_dirs or []
 
     def extract(self):
         """
@@ -15,21 +15,11 @@ class Yii2Extractor(BaseExtractor):
         """
         print(f"Starting extraction in: {self.project_root}")
 
-        # Преобразуем исключенные каталоги в набор путей для быстрого поиска
-        excluded_names = {name.strip() for name in self.excluded_dirs}
-
         for root, dirs, _ in os.walk(self.project_root):
-            # Отфильтровываем каталоги, которые следует исключить
-            dirs[:] = [
-                d for d in dirs
-                if not any(
-                    os.path.abspath(os.path.join(root, d)).startswith(
-                        os.path.abspath(os.path.join(self.project_root, excluded)))
-                    for excluded in excluded_names
-                )
-            ]
+            # Фильтруем исключенные директории
+            dirs[:] = [d for d in dirs if not self.is_excluded(os.path.join(root, d))]
 
-            # Определяем типы Yii2 (контроллеры, модели, конфиги, представления)
+            # Определяем тип каталога Yii2 (контроллеры, модели, представления, конфиги)
             directory_type = self.detect_directory_type(root)
             if directory_type:
                 print(f"Processing directory: {root} as {directory_type}")
@@ -53,6 +43,9 @@ class Yii2Extractor(BaseExtractor):
             return None
 
     def process_directory(self, directory, directory_type):
+        """
+        Обрабатывает файлы PHP в указанном каталоге.
+        """
         files = get_all_files(directory, extensions=["php"], exclude_dirs=self.excluded_dirs)
         print(f"Processing directory: {directory} ({directory_type})")
         print(f"Found {len(files)} PHP files in {directory}")
@@ -60,23 +53,23 @@ class Yii2Extractor(BaseExtractor):
         for file_path in files:
             print(f"Processing file: {file_path}")
             try:
-                with open(file_path, 'r', encoding='utf-8') as file:
-                    content = file.read()
-                    chunks = self.split_into_chunks(content)
-                    data = [
-                        {
-                            "chunk_type": directory_type,
-                            "file_path": file_path,
-                            "description": f"{directory_type.capitalize()} code chunk from {os.path.basename(file_path)}",
-                            "code": chunk,
-                        }
-                        for chunk in chunks
-                    ]
-                    self.save_chunks(data, f"yii2_{directory_type}")
-                    print(f"Successfully processed file: {file_path}")
-            except Exception as e:
-                print(f"Error processing file {file_path}: {e}")
+                # Вызываем PHP-парсер
+                chunks = parse_php_code(file_path, self.project_root)
 
-    def split_into_chunks(self, content):
-        # Простое разбиение на чанки по размеру
-        return [content[i:i+self.chunk_size] for i in range(0, len(content), self.chunk_size)]
+                # Обновляем метаданные для всех чанков
+                for chunk in chunks:
+                    chunk["chunk_type"] = directory_type
+                    chunk["file_path"] = file_path
+                    chunk["description"] = f"{directory_type.capitalize()} code chunk from {os.path.basename(file_path)}"
+
+                # Сохраняем чанки
+                self.save_chunks(chunks, f"yii2_{directory_type}")
+                print(f"Successfully processed file: {file_path}")
+            except FileNotFoundError as e:
+                print(f"Error: PHP parser script not found. {e}")
+            except RuntimeError as e:
+                print(f"Runtime error while parsing file {file_path}: {e}")
+            except ValueError as e:
+                print(f"Parsing error in file {file_path}: {e}")
+            except Exception as e:
+                print(f"Unexpected error processing file {file_path}: {e}")

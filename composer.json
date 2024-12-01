@@ -13,5 +13,7 @@
             "email": "msav@msav.ru"
         }
     ],
-    "require": {}
+    "require": {
+        "nikic/php-parser": "^5.3"
+    }
 }
