@@ -17,7 +17,7 @@ CHUNK_SIZE = int(os.getenv("CHUNK_SIZE", "5000"))
 logger = setup_global_logger(PROJECT_PREFIX)
 
 # Создаем экземпляр JSONManager
-json_manager = JSONManager(output_directory=OUTPUT_DIR)
+json_manager = JSONManager(output_directory=OUTPUT_DIR, project_prefix=PROJECT_PREFIX)
 
 
 def main():

@@ -8,14 +8,16 @@ class JSONManager:
     Класс для работы с JSON и JSONL файлами с поддержкой нескольких областей данных (scopes).
     """
 
-    def __init__(self, output_directory="output"):
+    def __init__(self, output_directory="output", project_prefix="project"):
         """
         Инициализация менеджера JSON/JSONL с поддержкой нескольких областей.
 
         :param output_directory: Директория, куда будут сохраняться файлы.
+        :param project_prefix: Префикс для выходных файлов.
         """
         self.data = defaultdict(list)
         self.output_directory = output_directory
+        self.project_prefix = project_prefix
         os.makedirs(self.output_directory, exist_ok=True)
 
     def add_data(self, scope, entries):
@@ -103,9 +105,9 @@ class JSONManager:
                          Если None, данные сохраняются как есть.
         """
         for scope, entries in self.data.items():
-            # Определяем пути к файлам
-            jsonl_file = os.path.join(self.output_directory, f"{scope}.jsonl")
-            json_file = os.path.join(self.output_directory, f"{scope}.json")
+            # Определяем пути к файлам с учетом префикса
+            jsonl_file = os.path.join(self.output_directory, f"{self.project_prefix}_{scope}.jsonl")
+            json_file = os.path.join(self.output_directory, f"{self.project_prefix}_{scope}.json")
 
             # Сохраняем в JSONL
             self._save_jsonl(scope, jsonl_file)
