@@ -1,0 +1,17 @@
+{
+    "name": "msav/project2jsonl",
+    "type": "library",
+    "license": "MIT",
+    "autoload": {
+        "psr-4": {
+            "Msav\\Project2jsonl\\": "src/"
+        }
+    },
+    "authors": [
+        {
+            "name": "Andrey Mishchenko",
+            "email": "msav@msav.ru"
+        }
+    ],
+    "require": {}
+}
