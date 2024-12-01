@@ -27,7 +27,7 @@ def main():
 
     # Обработка Yii2 файлов
     print("Starting Yii2 project extraction...")
-    yii2_extractor = Yii2Extractor(SOURCE_DIR, OUTPUT_DIR, PROJECT_PREFIX, CHUNK_SIZE)
+    yii2_extractor = Yii2Extractor(SOURCE_DIR, OUTPUT_DIR, PROJECT_PREFIX, CHUNK_SIZE, EXCLUDED_DIRS)
     yii2_extractor.extract()
 
     # Итоговый вывод
