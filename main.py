@@ -4,6 +4,7 @@ from utils.logger import setup_global_logger
 from formatters.json_manager import JSONManager
 from extractors.python_extractor import process_python_files
 from extractors.yii2_extractor import Yii2Extractor
+from extractors.react_extractor import ReactExtractor  # Импортируем ReactExtractor
 
 # Загрузка конфигурации
 load_dotenv()
@@ -35,6 +36,12 @@ def process_project():
         yii2_extractor = Yii2Extractor(SOURCE_DIR, OUTPUT_DIR, PROJECT_PREFIX, json_manager, CHUNK_SIZE, EXCLUDED_DIRS)
         yii2_extractor.extract()
         logger.info("Обработка Yii2 завершена.")
+
+    if "react" in PROJECT_TYPES:
+        logger.info("Обработка React файлов...")
+        react_extractor = ReactExtractor(SOURCE_DIR, OUTPUT_DIR, PROJECT_PREFIX, json_manager, CHUNK_SIZE, EXCLUDED_DIRS)
+        react_extractor.extract()
+        logger.info("Обработка React завершена.")
 
     # Здесь можно добавить обработку других типов проектов:
     # if "laravel" in PROJECT_TYPES:
