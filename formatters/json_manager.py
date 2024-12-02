@@ -65,33 +65,36 @@ class JSONManager:
 
         # Группировка данных
         for chunk in self.data[scope]:
+            group_key = "unknown_group"  # Устанавливаем значение по умолчанию
+
             if group_by:
-                # Достать значение для группировки
-                group_key = chunk
-                for part in group_by.split('.'):
-                    group_key = group_key.get(part)
-                    if group_key is None:
-                        raise KeyError(f"Grouping key '{group_by}' not found in chunk: {chunk}")
+                try:
+                    # Достаем значение для группировки
+                    group_key = chunk
+                    for part in group_by.split('.'):
+                        group_key = group_key.get(part)
+                        if group_key is None:
+                            raise KeyError(f"Key '{group_by}' not found in chunk.")
+                except (KeyError, AttributeError) as e:
+                    group_key = "unknown_group"  # Сохраняем в группу с неизвестным ключом
+                    print(f"Warning: {e}. Chunk added to 'unknown_group'.")
 
-                # Инициализация группы, если её ещё нет
-                if group_key not in grouped_data:
-                    grouped_data[group_key] = {
-                        "group_key": group_key,
-                        "items": []
-                    }
+            # Инициализация группы
+            if group_key not in grouped_data:
+                grouped_data[group_key] = {
+                    "group_key": group_key,
+                    "items": []
+                }
 
-                # Добавление текущего чанка в группу
-                grouped_data[group_key]["items"].append(chunk)
-            else:
-                # Если группировка не указана, добавляем в общий список
-                grouped_data.setdefault("ungrouped", []).append(chunk)
+            # Добавление текущего чанка в группу
+            grouped_data[group_key]["items"].append(chunk)
 
         # Проверяем, есть ли данные
         if not grouped_data:
-            grouped_data = {"ungrouped": []}
+            grouped_data = {"unknown_group": []}
 
         # Формирование выходной структуры
-        output_data = grouped_data if group_by else grouped_data["ungrouped"]
+        output_data = grouped_data if group_by else grouped_data["unknown_group"]
 
         # Сохранение в человекопонятный JSON
         with open(output_file, 'w', encoding='utf-8') as json_file:
