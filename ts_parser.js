@@ -21,8 +21,13 @@ class TsParser {
     }
 
     preprocessCode(code) {
-        // Удаляем const без значения, чтобы избежать ошибок
-        return code.replace(/const\s+[a-zA-Z_$][a-zA-Z0-9_$]*\s*;/g, '');
+        console.log("Preprocessing code...");
+        // Удаляем const без значения
+        code = code.replace(/const\s+([a-zA-Z_$][a-zA-Z0-9_$]*)\s*;/g, 'let $1;');
+        // Удаляем любые декларации `export const` без инициализаторов
+        code = code.replace(/export\s+const\s+([a-zA-Z_$][a-zA-Z0-9_$]*)\s*;/g, 'export let $1;');
+        console.log("Code after preprocessing:", code.slice(0, 300)); // Лог первых 300 символов
+        return code;
     }
 
     parse(filePath) {
@@ -44,7 +49,23 @@ class TsParser {
                     ? ` at line ${parseError.loc.line}, column ${parseError.loc.column}`
                     : ''
             );
-            throw new Error(`Parsing failed for ${filePath}: ${parseError.message}`);
+
+            // Дополнительная обработка проблемы
+            if (parseError.message.includes('Missing initializer in const declaration')) {
+                console.warn(`Attempting to fix missing const initializer in ${filePath}`);
+                code = this.fixConstDeclarations(code);
+                try {
+                    ast = babelParser.parse(code, {
+                        sourceType: 'module',
+                        plugins: isTSX ? ['typescript', 'jsx'] : ['typescript'],
+                    });
+                } catch (secondaryError) {
+                    console.error(`Secondary parse error: ${secondaryError.message}`);
+                    throw new Error(`Parsing failed for ${filePath}: ${secondaryError.message}`);
+                }
+            } else {
+                throw new Error(`Parsing failed for ${filePath}: ${parseError.message}`);
+            }
         }
 
         traverse(ast, {
@@ -146,117 +167,17 @@ class TsParser {
                     console.error('Error processing FunctionDeclaration:', e.message, path.node);
                 }
             },
-
-            ClassDeclaration: (path) => {
-                try {
-                    const classNode = path.node;
-                    if (!classNode.id) return;
-
-                    const classData = {
-                        name: classNode.id.name,
-                        code: generator(classNode).code,
-                        methods: [],
-                        properties: [],
-                    };
-
-                    classNode.body.body.forEach((element) => {
-                        if (element.type === 'ClassMethod') {
-                            classData.methods.push({
-                                name: element.key?.name || null,
-                                kind: element.kind || null,
-                                static: element.static || false,
-                                code: generator(element).code,
-                                start_line: element.loc?.start?.line || null,
-                                end_line: element.loc?.end?.line || null,
-                            });
-                        } else if (element.type === 'ClassProperty') {
-                            classData.properties.push({
-                                name: element.key?.name || null,
-                                type: element.typeAnnotation
-                                    ? generator(element.typeAnnotation).code
-                                    : null,
-                                static: element.static || false,
-                                default_value: element.value
-                                    ? generator(element.value).code
-                                    : null,
-                            });
-                        }
-                    });
-
-                    if (isTSX && this.isReactComponent(classNode)) {
-                        this.result.react_components.push(classData);
-                    } else {
-                        this.result.classes.push(classData);
-                    }
-                } catch (e) {
-                    console.error('Error processing ClassDeclaration:', e.message, path.node);
-                }
-            },
-
-            ArrowFunctionExpression: (path) => {
-                try {
-                    if (isTSX && this.isReactComponent(path.parent)) {
-                        const componentName =
-                            path.parent.id?.name || 'AnonymousComponent';
-                        this.result.react_components.push({
-                            name: componentName,
-                            code: generator(path.node).code,
-                            props: this.extractPropsFromJSX(path),
-                        });
-                    }
-                } catch (e) {
-                    console.error('Error processing ArrowFunctionExpression:', e.message, path.node);
-                }
-            },
-
-            FunctionExpression: (path) => {
-                try {
-                    if (isTSX && this.isReactComponent(path.parent)) {
-                        const componentName =
-                            path.parent.id?.name || 'AnonymousComponent';
-                        this.result.react_components.push({
-                            name: componentName,
-                            code: generator(path.node).code,
-                            props: this.extractPropsFromJSX(path),
-                        });
-                    }
-                } catch (e) {
-                    console.error('Error processing FunctionExpression:', e.message, path.node);
-                }
-            },
         });
 
         return this.result;
     }
 
+    fixConstDeclarations(code) {
+        return code.replace(/const\s+([a-zA-Z_$][a-zA-Z0-9_$]*)\s*;/g, 'let $1;');
+    }
+
     logNodeProcessing(node) {
         console.log(`Processing node of type: ${node.type}`);
-    }
-
-    isReactComponent(node) {
-        return (
-            node?.superClass?.name === 'Component' ||
-            node?.superClass?.name === 'PureComponent' ||
-            (node.type === 'VariableDeclarator' &&
-                node.init?.type === 'ArrowFunctionExpression') ||
-            (node.type === 'FunctionDeclaration' &&
-                node.params?.some((param) => param.type === 'Identifier'))
-        );
-    }
-
-    extractPropsFromJSX(path) {
-        const props = [];
-        traverse(path.node, {
-            JSXAttribute(attributePath) {
-                props.push({
-                    name: attributePath.node.name?.name || null,
-                    value: attributePath.node.value
-                        ? generator(attributePath.node.value).code
-                        : null,
-                });
-            },
-        });
-        return props;
     }
 }
 
