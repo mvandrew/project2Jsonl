@@ -20,14 +20,32 @@ class TsParser {
         };
     }
 
+    preprocessCode(code) {
+        // Удаляем const без значения, чтобы избежать ошибок
+        return code.replace(/const\s+[a-zA-Z_$][a-zA-Z0-9_$]*\s*;/g, '');
+    }
+
     parse(filePath) {
-        const code = fs.readFileSync(filePath, 'utf-8');
+        let code = fs.readFileSync(filePath, 'utf-8');
+        code = this.preprocessCode(code); // Применяем предобработку кода
         const isTSX = path.extname(filePath).toLowerCase() === '.tsx';
 
-        const ast = babelParser.parse(code, {
-            sourceType: 'module',
-            plugins: isTSX ? ['typescript', 'jsx'] : ['typescript'],
-        });
+        let ast;
+        try {
+            ast = babelParser.parse(code, {
+                sourceType: 'module',
+                plugins: isTSX ? ['typescript', 'jsx'] : ['typescript'],
+            });
+        } catch (parseError) {
+            console.error(
+                `Error parsing file: ${filePath}`,
+                parseError.message,
+                parseError.loc
+                    ? ` at line ${parseError.loc.line}, column ${parseError.loc.column}`
+                    : ''
+            );
+            throw new Error(`Parsing failed for ${filePath}: ${parseError.message}`);
+        }
 
         traverse(ast, {
             enter(path) {
