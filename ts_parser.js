@@ -36,21 +36,22 @@ class TsParser {
         // Проходим по AST
         traverse(ast, {
             ImportDeclaration: (path) => {
-                this.result.imports.push(path.node.source.value);
+                this.result.imports.push(path.node.source?.value || null);
             },
 
             ExportNamedDeclaration: (path) => {
-                if (path.node.declaration) {
-                    const exportCode = generator(path.node.declaration).code;
+                const declaration = path.node.declaration;
+                if (declaration) {
+                    const exportCode = generator(declaration).code;
                     this.result.exports.push({
-                        name: path.node.declaration.id?.name || null,
-                        type: path.node.declaration.type,
+                        name: declaration.id?.name || null,
+                        type: declaration.type || null,
                         code: exportCode,
                     });
                 } else {
                     path.node.specifiers.forEach((specifier) => {
                         this.result.exports.push({
-                            name: specifier.exported.name,
+                            name: specifier.exported?.name || null,
                             code: null,
                         });
                     });
@@ -58,10 +59,11 @@ class TsParser {
             },
 
             ExportDefaultDeclaration: (path) => {
-                const exportCode = generator(path.node.declaration).code;
+                const declaration = path.node.declaration;
+                const exportCode = declaration ? generator(declaration).code : null;
                 this.result.exports.push({
                     name: 'default',
-                    type: path.node.declaration.type,
+                    type: declaration?.type || null,
                     code: exportCode,
                 });
             },
@@ -69,7 +71,7 @@ class TsParser {
             TSInterfaceDeclaration: (path) => {
                 const typeCode = generator(path.node).code;
                 this.result.types.push({
-                    name: path.node.id.name,
+                    name: path.node.id?.name || null,
                     kind: 'interface',
                     code: typeCode,
                 });
@@ -78,7 +80,7 @@ class TsParser {
             TSTypeAliasDeclaration: (path) => {
                 const typeCode = generator(path.node).code;
                 this.result.types.push({
-                    name: path.node.id.name,
+                    name: path.node.id?.name || null,
                     kind: 'type',
                     code: typeCode,
                 });
@@ -86,16 +88,20 @@ class TsParser {
 
             FunctionDeclaration: (path) => {
                 const functionNode = path.node;
-                this.result.functions.push({
-                    name: functionNode.id.name,
-                    code: generator(functionNode).code,
-                    start_line: functionNode.loc.start.line,
-                    end_line: functionNode.loc.end.line,
-                });
+                if (functionNode.id) {
+                    this.result.functions.push({
+                        name: functionNode.id.name,
+                        code: generator(functionNode).code,
+                        start_line: functionNode.loc?.start?.line || null,
+                        end_line: functionNode.loc?.end?.line || null,
+                    });
+                }
             },
 
             ClassDeclaration: (path) => {
                 const classNode = path.node;
+                if (!classNode.id) return; // Пропускаем анонимные классы
+
                 const classData = {
                     name: classNode.id.name,
                     code: generator(classNode).code,
@@ -107,16 +113,16 @@ class TsParser {
                 classNode.body.body.forEach((element) => {
                     if (element.type === 'ClassMethod') {
                         classData.methods.push({
-                            name: element.key.name,
-                            kind: element.kind,
+                            name: element.key?.name || null,
+                            kind: element.kind || null,
                             static: element.static || false,
                             code: generator(element).code,
-                            start_line: element.loc.start.line,
-                            end_line: element.loc.end.line,
+                            start_line: element.loc?.start?.line || null,
+                            end_line: element.loc?.end?.line || null,
                         });
                     } else if (element.type === 'ClassProperty') {
                         classData.properties.push({
-                            name: element.key.name,
+                            name: element.key?.name || null,
                             type: element.typeAnnotation
                                 ? generator(element.typeAnnotation).code
                                 : null,
@@ -166,8 +172,8 @@ class TsParser {
     isReactComponent(node) {
         // Проверяем, является ли узел React-компонентом (классовый или функциональный)
         return (
-            node.superClass?.name === 'Component' ||
-            node.superClass?.name === 'PureComponent' ||
+            node?.superClass?.name === 'Component' ||
+            node?.superClass?.name === 'PureComponent' ||
             (node.type === 'VariableDeclarator' &&
                 node.init?.type === 'ArrowFunctionExpression') ||
             (node.type === 'FunctionDeclaration' &&
@@ -181,7 +187,7 @@ class TsParser {
         traverse(path.node, {
             JSXAttribute(attributePath) {
                 props.push({
-                    name: attributePath.node.name.name,
+                    name: attributePath.node.name?.name || null,
                     value: attributePath.node.value
                         ? generator(attributePath.node.value).code
                         : null,
