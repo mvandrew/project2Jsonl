@@ -1,8 +1,8 @@
-import fs from 'fs';
-import path from 'path';
-import * as babelParser from '@babel/parser';
-import traverse from '@babel/traverse';
-import generator from '@babel/generator';
+const fs = require('fs');
+const path = require('path');
+const babelParser = require('@babel/parser');
+const traverse = require('@babel/traverse').default; // Использование .default для правильного экспорта
+const generator = require('@babel/generator').default;
 
 /**
  * Парсер TypeScript и TSX файлов.
