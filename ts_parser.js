@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const babelParser = require('@babel/parser');
-const traverse = require('@babel/traverse').default; // Использование .default для правильного экспорта
+const traverse = require('@babel/traverse').default;
 const generator = require('@babel/generator').default;
 
 /**
@@ -21,19 +21,14 @@ class TsParser {
     }
 
     parse(filePath) {
-        // Считываем исходный код файла
         const code = fs.readFileSync(filePath, 'utf-8');
-
-        // Определяем тип файла (tsx или ts)
         const isTSX = path.extname(filePath).toLowerCase() === '.tsx';
 
-        // Парсим код с использованием Babel
         const ast = babelParser.parse(code, {
             sourceType: 'module',
             plugins: isTSX ? ['typescript', 'jsx'] : ['typescript'],
         });
 
-        // Проходим по AST
         traverse(ast, {
             ImportDeclaration: (path) => {
                 this.result.imports.push(path.node.source?.value || null);
@@ -69,21 +64,25 @@ class TsParser {
             },
 
             TSInterfaceDeclaration: (path) => {
-                const typeCode = generator(path.node).code;
-                this.result.types.push({
-                    name: path.node.id?.name || null,
-                    kind: 'interface',
-                    code: typeCode,
-                });
+                if (path.node.id?.name) {
+                    const typeCode = generator(path.node).code;
+                    this.result.types.push({
+                        name: path.node.id.name,
+                        kind: 'interface',
+                        code: typeCode,
+                    });
+                }
             },
 
             TSTypeAliasDeclaration: (path) => {
-                const typeCode = generator(path.node).code;
-                this.result.types.push({
-                    name: path.node.id?.name || null,
-                    kind: 'type',
-                    code: typeCode,
-                });
+                if (path.node.id?.name) {
+                    const typeCode = generator(path.node).code;
+                    this.result.types.push({
+                        name: path.node.id.name,
+                        kind: 'type',
+                        code: typeCode,
+                    });
+                }
             },
 
             FunctionDeclaration: (path) => {
@@ -100,7 +99,7 @@ class TsParser {
 
             ClassDeclaration: (path) => {
                 const classNode = path.node;
-                if (!classNode.id) return; // Пропускаем анонимные классы
+                if (!classNode.id) return;
 
                 const classData = {
                     name: classNode.id.name,
@@ -109,7 +108,6 @@ class TsParser {
                     properties: [],
                 };
 
-                // Разбираем свойства и методы класса
                 classNode.body.body.forEach((element) => {
                     if (element.type === 'ClassMethod') {
                         classData.methods.push({
@@ -170,19 +168,17 @@ class TsParser {
     }
 
     isReactComponent(node) {
-        // Проверяем, является ли узел React-компонентом (классовый или функциональный)
         return (
             node?.superClass?.name === 'Component' ||
             node?.superClass?.name === 'PureComponent' ||
             (node.type === 'VariableDeclarator' &&
                 node.init?.type === 'ArrowFunctionExpression') ||
             (node.type === 'FunctionDeclaration' &&
-                node.params.some((param) => param.type === 'Identifier'))
+                node.params?.some((param) => param.type === 'Identifier'))
         );
     }
 
     extractPropsFromJSX(path) {
-        // Извлечение пропсов из JSX (для функциональных компонентов)
         const props = [];
         traverse(path.node, {
             JSXAttribute(attributePath) {
@@ -210,7 +206,6 @@ try {
     const parser = new TsParser();
     const result = parser.parse(filePath);
 
-    // Выводим результат в формате JSON
     console.log(JSON.stringify(result, null, 4));
 } catch (error) {
     console.error('Error parsing TypeScript/TSX file:', error.message);
