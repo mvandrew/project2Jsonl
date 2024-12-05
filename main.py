@@ -2,9 +2,9 @@ import os
 from dotenv import load_dotenv
 from utils.logger import setup_global_logger
 from formatters.json_manager import JSONManager
-from extractors.python_extractor import process_python_files
+from extractors.python_extractor import PythonExtractor
 from extractors.yii2_extractor import Yii2Extractor
-from extractors.react_extractor import ReactExtractor  # Импортируем ReactExtractor
+from extractors.react_extractor import ReactExtractor
 
 # Загрузка конфигурации
 load_dotenv()
@@ -47,7 +47,15 @@ def process_project():
     """
     if "python" in PROJECT_TYPES:
         logger.info("Обработка Python файлов...")
-        process_python_files(SOURCE_DIR, EXCLUDED_DIRS, json_manager, CHUNK_SIZE)
+        python_extractor = PythonExtractor(
+            project_root=SOURCE_DIR,
+            output_dir=OUTPUT_DIR,
+            prefix=PROJECT_PREFIX,
+            json_manager=json_manager,
+            chunk_size=CHUNK_SIZE,
+            excluded_dirs=EXCLUDED_DIRS
+        )
+        python_extractor.extract()
         logger.info("Обработка Python завершена.")
 
     if "yii2" in PROJECT_TYPES:
