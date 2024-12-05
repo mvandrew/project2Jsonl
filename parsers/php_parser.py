@@ -1,13 +1,8 @@
 import subprocess
 import json
 import os
-import uuid
+from utils.common import generate_id
 from datetime import datetime
-
-
-def generate_id():
-    """Генерирует уникальный идентификатор."""
-    return str(uuid.uuid4())
 
 
 def parse_php_code(file_path, source_dir, php_parser_script="php_parser.php"):

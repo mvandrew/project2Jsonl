@@ -1,13 +1,8 @@
 import subprocess
 import json
 import os
-import uuid
+from utils.common import generate_id
 from datetime import datetime
-
-
-def generate_id():
-    """Генерирует уникальный идентификатор."""
-    return str(uuid.uuid4())
 
 
 def parse_ts_code(file_path, source_dir, ts_parser_script="ts_parser.js"):
