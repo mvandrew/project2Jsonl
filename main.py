@@ -14,12 +14,31 @@ EXCLUDED_DIRS = os.getenv("EXCLUDED_DIRS", "").split(",")
 PROJECT_PREFIX = os.getenv("PROJECT_PREFIX", "project")
 CHUNK_SIZE = int(os.getenv("CHUNK_SIZE", "5000"))
 PROJECT_TYPES = os.getenv("PROJECT_TYPES", "").split(",")  # Список типов проектов
+MAX_SUMMARY_FILE_SIZE = int(os.getenv("MAX_SUMMARY_FILE_SIZE", "1048576"))
 
 # Настройка глобального логгера
 logger = setup_global_logger(PROJECT_PREFIX)
 
 # Создаем экземпляр JSONManager
 json_manager = JSONManager(output_directory=OUTPUT_DIR, project_prefix=PROJECT_PREFIX)
+
+
+def clear_output_directory(output_dir):
+    """
+    Удаляет все файлы с расширением .json и .jsonl в указанной директории.
+
+    :param output_dir: Путь к директории для очистки.
+    """
+    logger.info(f"Очистка директории вывода: {output_dir}")
+    for root, dirs, files in os.walk(output_dir):
+        for file in files:
+            if file.endswith(".json") or file.endswith(".jsonl"):
+                file_path = os.path.join(root, file)
+                try:
+                    os.remove(file_path)
+                    logger.info(f"Удален файл: {file_path}")
+                except Exception as e:
+                    logger.error(f"Не удалось удалить файл {file_path}: {e}")
 
 
 def process_project():
@@ -54,12 +73,15 @@ def process_project():
 def main():
     logger.info("Начало обработки проекта...")
     try:
+        # Очистка директории вывода
+        clear_output_directory(OUTPUT_DIR)
+
         # Обработка проекта на основе типов
         process_project()
 
         # Сохранение всех данных
         logger.info("Сохранение всех данных...")
-        json_manager.save_all(group_by="metadata.source")
+        json_manager.save_all(group_by="metadata.source", max_summary_file_size=MAX_SUMMARY_FILE_SIZE)
         logger.info("Все данные успешно сохранены.")
 
     except Exception as e:

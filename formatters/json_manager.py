@@ -100,13 +100,14 @@ class JSONManager:
         with open(output_file, 'w', encoding='utf-8') as json_file:
             json.dump(output_data, json_file, ensure_ascii=False, indent=4)
 
-    def save_all(self, group_by=None):
+    def save_all(self, group_by=None, max_summary_file_size=None):
         """
         Сохраняет все области данных в соответствующие файлы JSON и JSONL,
-        а также создает общий файл с группировкой по типу проекта.
+        разделяя только summary-файлы при превышении max_summary_file_size.
 
         :param group_by: Ключ для группировки данных в человекопонятном JSON (например, "file_path" или "metadata.source").
                          Если None, данные сохраняются как есть.
+        :param max_summary_file_size: Максимальный размер summary-файла в байтах.
         """
         project_data = defaultdict(list)
 
@@ -125,23 +126,62 @@ class JSONManager:
             project_type = scope.split("_")[0]  # Извлекаем тип проекта из названия scope
             project_data[project_type].extend(entries)
 
-        # Сохраняем общий файл для каждого типа проекта
-        for project_type, data in project_data.items():
-            summary_jsonl_file = os.path.join(self.output_directory, f"{self.project_prefix}_{project_type}_summary.jsonl")
-            summary_json_file = os.path.join(self.output_directory, f"{self.project_prefix}_{project_type}_summary.json")
+        # Сохраняем только общий summary файл для каждого типа проекта
+        if max_summary_file_size:
+            for project_type, data in project_data.items():
+                summary_jsonl_base = os.path.join(self.output_directory,
+                                                  f"{self.project_prefix}_{project_type}_summary")
+                summary_json_base = os.path.join(self.output_directory, f"{self.project_prefix}_{project_type}_summary")
 
-            # Сохраняем общий JSONL файл
-            with open(summary_jsonl_file, 'w', encoding='utf-8') as jsonl_file:
-                for entry in data:
-                    jsonl_file.write(json.dumps(entry, ensure_ascii=False) + '\n')
+                # Сохраняем summary JSONL с разделением по размеру
+                file_index = 0
+                current_jsonl_file = f"{summary_jsonl_base}_{file_index}.jsonl"
+                current_size = 0
 
-            # Сохраняем общий JSON файл
-            with open(summary_json_file, 'w', encoding='utf-8') as json_file:
-                json.dump(data, json_file, ensure_ascii=False, indent=4)
+                with open(current_jsonl_file, 'w', encoding='utf-8') as jsonl_file:
+                    for entry in data:
+                        entry_json = json.dumps(entry, ensure_ascii=False) + '\n'
+                        entry_size = len(entry_json.encode('utf-8'))
 
-            print(f"Summary files saved for project type '{project_type}':")
-            print(f" - JSONL: {summary_jsonl_file}")
-            print(f" - JSON: {summary_json_file}")
+                        if current_size + entry_size > max_summary_file_size:
+                            # Закрываем текущий файл и начинаем новый
+                            file_index += 1
+                            current_jsonl_file = f"{summary_jsonl_base}_{file_index}.jsonl"
+                            jsonl_file.close()
+                            jsonl_file = open(current_jsonl_file, 'w', encoding='utf-8')
+                            current_size = 0
+
+                        jsonl_file.write(entry_json)
+                        current_size += entry_size
+
+                # Сохраняем summary JSON без разделения (общий)
+                summary_json_file = f"{summary_json_base}.json"
+                with open(summary_json_file, 'w', encoding='utf-8') as json_file:
+                    json.dump(data, json_file, ensure_ascii=False, indent=4)
+
+                print(f"Summary files saved for project type '{project_type}':")
+                print(f" - JSONL (split by size): {summary_jsonl_base}_*.jsonl")
+                print(f" - JSON: {summary_json_file}")
+        else:
+            # Без ограничения размера сохраняем как обычно
+            for project_type, data in project_data.items():
+                summary_jsonl_file = os.path.join(self.output_directory,
+                                                  f"{self.project_prefix}_{project_type}_summary.jsonl")
+                summary_json_file = os.path.join(self.output_directory,
+                                                 f"{self.project_prefix}_{project_type}_summary.json")
+
+                # Сохраняем JSONL
+                with open(summary_jsonl_file, 'w', encoding='utf-8') as jsonl_file:
+                    for entry in data:
+                        jsonl_file.write(json.dumps(entry, ensure_ascii=False) + '\n')
+
+                # Сохраняем JSON
+                with open(summary_json_file, 'w', encoding='utf-8') as json_file:
+                    json.dump(data, json_file, ensure_ascii=False, indent=4)
+
+                print(f"Summary files saved for project type '{project_type}':")
+                print(f" - JSONL: {summary_jsonl_file}")
+                print(f" - JSON: {summary_json_file}")
 
     def reset_scope(self, scope):
         """
