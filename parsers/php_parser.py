@@ -134,7 +134,7 @@ def parse_php_code(file_path, source_dir, php_parser_script="php_parser.php"):
         "type": "file",
         "name": file_name,
         "description": f"PHP file: {file_name}",
-        "code": None,  # Опционально можно добавить весь исходный код файла
+        "code": None,  # По умолчанию None, добавим полный код, если chunks пуст
         "metadata": {
             "source": relative_path,
             "file_name": file_name,
@@ -144,5 +144,13 @@ def parse_php_code(file_path, source_dir, php_parser_script="php_parser.php"):
         },
         "chunks": chunks
     }
+
+    # Если chunks пусты, добавляем полный исходный код файла
+    if not chunks:
+        try:
+            with open(file_path, 'r', encoding='utf-8') as file:
+                file_metadata["code"] = file.read()
+        except Exception as e:
+            raise RuntimeError(f"Unable to read the file {file_path}: {e}")
 
     return [file_metadata]
