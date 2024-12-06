@@ -92,10 +92,7 @@ class LLMAssist:
 
         # Если содержимое файла пустое
         if not file_code.strip():
-            user_message = (
-                f"Тип проекта: {self.project_type}\n"
-                f"Опиши назначение файла с именем {file_name}. Файл пуст или недоступен."
-            )
+            user_message = f"Определи назначение PHP-файла {file_name} в проекте {self.project_type}. Файл пуст."
             user_messages = [user_message]
         else:
             max_code_length = 3500  # Ограничение на длину содержимого файла для сокращения
@@ -103,23 +100,23 @@ class LLMAssist:
                 file_code = file_code[:max_code_length] + "\n\n[Содержимое файла сокращено...]"
 
             user_message = (
-                f"Опиши назначение файла в проекте {self.project_type} с именем {file_name}. Вот содержимое файла:\n\n{file_code}\n"
-                f"Отвечай строго по-существу на русском языке. Не цитируй исходный код файла или промпт пользователя.\n"
-                f"Ответ формируй сжато без лишних пояснений."
+                f"Опиши на русском языке назначение PHP-файла {file_name} в проекте {self.project_type}.\n"
+                f"Не цитируй код файла или промпт пользователя.\n"
+                f"Содержимое:\n\n{file_code}"
             )
 
             # Разделяем сообщение, если оно длиннее max_length
             user_messages = [user_message[i:i + max_length] for i in range(0, len(user_message), max_length)]
 
-        # Формируем системное сообщение (опционально)
+        # Формируем системное сообщение
         system_message = (
-            "Вы анализируете PHP-файлы Yii2, кратко описывая их назначение, классы, методы, связи и роль в структуре MVC с учётом ActiveRecord, конфигураций, модулей и компонентов."
+            "Вы ассистент для анализа PHP-файлов Yii2. Определяйте назначение файлов, классов и методов кратко и по существу."
         )
 
         # Обработка сообщений по частям
         result = ""
         for part in user_messages:
-            response = self.query(user_message=part, system_message=system_message, max_tokens=512, temperature=0.3)
+            response = self.query(user_message=part, system_message=system_message, max_tokens=256, temperature=0.4)
             result += response.strip() + "\n"
 
         return result.strip()
