@@ -60,13 +60,27 @@ def process_project():
 
     if "yii2" in PROJECT_TYPES:
         logger.info("Обработка Yii2 файлов...")
-        yii2_extractor = Yii2Extractor(SOURCE_DIR, OUTPUT_DIR, PROJECT_PREFIX, json_manager, CHUNK_SIZE, EXCLUDED_DIRS)
+        yii2_extractor = Yii2Extractor(
+            project_root=SOURCE_DIR,
+            output_dir=OUTPUT_DIR,
+            prefix=PROJECT_PREFIX,
+            json_manager=json_manager,
+            chunk_size=CHUNK_SIZE,
+            excluded_dirs=EXCLUDED_DIRS
+        )
         yii2_extractor.extract()
         logger.info("Обработка Yii2 завершена.")
 
     if "react" in PROJECT_TYPES:
         logger.info("Обработка React файлов...")
-        react_extractor = ReactExtractor(SOURCE_DIR, OUTPUT_DIR, PROJECT_PREFIX, json_manager, CHUNK_SIZE, EXCLUDED_DIRS)
+        react_extractor = ReactExtractor(
+            project_root=SOURCE_DIR,
+            output_dir=OUTPUT_DIR,
+            prefix=PROJECT_PREFIX,
+            json_manager=json_manager,
+            chunk_size=CHUNK_SIZE,
+            excluded_dirs=EXCLUDED_DIRS
+        )
         react_extractor.extract()
         logger.info("Обработка React завершена.")
 

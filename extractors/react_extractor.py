@@ -20,7 +20,6 @@ class ReactExtractor(BaseExtractor):
         :param excluded_dirs: Список каталогов, которые следует исключить.
         """
         super().__init__(project_root, output_dir, prefix, json_manager, excluded_dirs)
-        self.chunk_size = chunk_size
 
     def extract(self):
         """

@@ -9,7 +9,7 @@ class BaseExtractor(ABC):
     Базовый класс для всех обработчиков исходного кода.
     """
 
-    def __init__(self, project_root, output_dir, prefix, json_manager, excluded_dirs=None):
+    def __init__(self, project_root, output_dir, prefix, json_manager, chunk_size=5000, excluded_dirs=None):
         """
         Инициализация базового обработчика.
         :param project_root: Путь к корневой директории проекта.
@@ -28,6 +28,7 @@ class BaseExtractor(ABC):
         self.output_dir = output_dir
         self.prefix = prefix
         self.json_manager = json_manager  # Менеджер для сохранения данных
+        self.chunk_size = chunk_size
 
     def is_excluded(self, path):
         """
