@@ -9,14 +9,35 @@ class BaseExtractor(ABC):
     Базовый класс для всех обработчиков исходного кода.
     """
 
-    def __init__(self, project_root, output_dir, prefix, json_manager, chunk_size=5000, excluded_dirs=None):
+    def __init__(self, project_root, output_dir, prefix, json_manager, chunk_size=5000, excluded_dirs=None, included_files=None):
         """
         Инициализация базового обработчика.
-        :param project_root: Путь к корневой директории проекта.
-        :param output_dir: Путь к директории для сохранения результатов.
-        :param prefix: Префикс для выходных файлов.
-        :param json_manager: Экземпляр JSONManager для управления данными.
-        :param excluded_dirs: Список каталогов, которые следует исключить.
+
+        :param project_root: str
+            Путь к корневой директории проекта.
+        :param output_dir: str
+            Путь к директории для сохранения результатов.
+        :param prefix: str
+            Префикс для выходных файлов.
+        :param json_manager: JSONManager
+            Экземпляр JSONManager для управления данными.
+        :param chunk_size: int, optional
+            Размер порции данных для обработки (по умолчанию 5000).
+        :param excluded_dirs: list[str], optional
+            Список каталогов, которые следует исключить при обработке.
+            Если не задано, используется пустой список.
+            Дополнительно всегда исключаются:
+                - ".git"
+                - ".idea"
+        :param included_files: list[str], optional
+            Список файлов для обработки. Если указан, обрабатываются только файлы
+            из этого списка (с указанием их относительных путей от корня проекта).
+            Если не задан, обрабатываются все файлы, кроме тех, что находятся в excluded_dirs.
+
+        Примечание:
+        - excluded_dirs: объединяет переданные исключённые каталоги с дефолтными
+          ".git" и ".idea".
+        - included_files: предназначен для отладки или частичной обработки проекта.
         """
         # Каталоги, которые всегда должны игнорироваться
         default_excluded_dirs = [".git", ".idea"]
@@ -29,6 +50,7 @@ class BaseExtractor(ABC):
         self.prefix = prefix
         self.json_manager = json_manager  # Менеджер для сохранения данных
         self.chunk_size = chunk_size
+        self.included_files = included_files
 
     def is_excluded(self, path):
         """

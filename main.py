@@ -15,6 +15,7 @@ PROJECT_PREFIX = os.getenv("PROJECT_PREFIX", "project")
 CHUNK_SIZE = int(os.getenv("CHUNK_SIZE", "5000"))
 PROJECT_TYPES = os.getenv("PROJECT_TYPES", "").split(",")  # Список типов проектов
 MAX_SUMMARY_FILE_SIZE = int(os.getenv("MAX_SUMMARY_FILE_SIZE", "1048576"))
+INCLUDED_FILES = os.getenv("INCLUDED_FILES", "").split(",")
 
 # Настройка глобального логгера
 logger = setup_global_logger(PROJECT_PREFIX)
@@ -53,7 +54,8 @@ def process_project():
             prefix=PROJECT_PREFIX,
             json_manager=json_manager,
             chunk_size=CHUNK_SIZE,
-            excluded_dirs=EXCLUDED_DIRS
+            excluded_dirs=EXCLUDED_DIRS,
+            included_files=INCLUDED_FILES
         )
         python_extractor.extract()
         logger.info("Обработка Python завершена.")
@@ -66,7 +68,8 @@ def process_project():
             prefix=PROJECT_PREFIX,
             json_manager=json_manager,
             chunk_size=CHUNK_SIZE,
-            excluded_dirs=EXCLUDED_DIRS
+            excluded_dirs=EXCLUDED_DIRS,
+            included_files=INCLUDED_FILES
         )
         yii2_extractor.extract()
         logger.info("Обработка Yii2 завершена.")
@@ -79,7 +82,8 @@ def process_project():
             prefix=PROJECT_PREFIX,
             json_manager=json_manager,
             chunk_size=CHUNK_SIZE,
-            excluded_dirs=EXCLUDED_DIRS
+            excluded_dirs=EXCLUDED_DIRS,
+            included_files=INCLUDED_FILES
         )
         react_extractor.extract()
         logger.info("Обработка React завершена.")
