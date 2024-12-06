@@ -35,25 +35,24 @@ def get_python_files(directory, excluded_dirs):
 
 def get_all_files(directory, extensions=None, exclude_dirs=None):
     """
-    Рекурсивно получает все файлы из указанной директории.
+    Рекурсивно получает все файлы из указанной директории, используя генератор.
 
     :param directory: Путь к корневой директории.
     :param extensions: Список расширений файлов для фильтрации (например, ['php', 'js']).
                        Если None, возвращаются файлы всех типов.
     :param exclude_dirs: Список имён директорий, которые нужно исключить.
                          Например, ['node_modules', '__pycache__'].
-    :return: Список путей к файлам.
+    :yield: Путь к файлу.
     """
-    files = []
     exclude_dirs = set(exclude_dirs or [])  # Преобразуем в множество для быстрого поиска
 
     for root, dirs, filenames in os.walk(directory):
         # Удаляем из обхода директории, которые совпадают с именами в exclude_dirs
         dirs[:] = [d for d in dirs if d not in exclude_dirs]
 
-        # Фильтруем файлы по расширениям
-        for filename in filenames:
-            if extensions is None or any(filename.endswith(f".{ext}") for ext in extensions):
-                files.append(os.path.join(root, filename))
-
-    return files
+        # Генератор для фильтрации и возврата файлов
+        yield from (
+            os.path.join(root, filename)
+            for filename in filenames
+            if extensions is None or any(filename.endswith(f".{ext}") for ext in extensions)
+        )
