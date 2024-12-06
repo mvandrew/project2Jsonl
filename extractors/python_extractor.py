@@ -40,13 +40,33 @@ class PythonExtractor(BaseExtractor):
           ".git" и ".idea".
         - included_files: предназначен для отладки или частичной обработки проекта.
         """
-        super().__init__(project_root, output_dir, prefix, json_manager, excluded_dirs, included_files)
+        super().__init__(project_root, output_dir, prefix, json_manager, chunk_size, excluded_dirs, included_files)
 
     def extract(self):
         """
         Обрабатывает всю структуру каталогов проекта, за исключением исключенных каталогов.
         """
         logger.info(f"Начало обработки Python-кода в проекте: {self.project_root}")
+
+        # Если указаны файлы для обработки, работаем только с ними
+        if self.included_files:
+            logger.info("Обработка только указанных файлов.")
+            for relative_file_path in self.included_files:
+                file_path = os.path.join(self.project_root, relative_file_path)
+
+                # Проверяем существование файла
+                if not os.path.isfile(file_path):
+                    logger.warning(f"Файл {file_path} не существует. Пропуск.")
+                    continue
+
+                # Проверяем расширение файла
+                if not file_path.endswith(".py"):
+                    logger.warning(f"Файл {file_path} не является Python-файлом. Пропуск.")
+                    continue
+
+                logger.info(f"Обработка файла из списка: {file_path}")
+                self.process_file(file_path)
+            return
 
         for root, dirs, _ in os.walk(self.project_root):
             # Фильтруем исключенные директории
@@ -73,28 +93,33 @@ class PythonExtractor(BaseExtractor):
         Обрабатывает файлы Python в указанном каталоге.
         """
         files = get_all_files(directory, extensions=["py"], exclude_dirs=self.excluded_dirs)
-        logger.info(f"Найдено {len(files)} Python файлов в каталоге {directory}")
 
         for file_path in files:
-            logger.info(f"Обработка файла: {file_path}")
-            try:
-                # Парсинг Python файла
-                parsed_file_data = parse_python_code(file_path, self.project_root)
+            self.process_file(file_path)
 
-                # Проверяем, что парсер вернул корректные данные
-                if not parsed_file_data or not isinstance(parsed_file_data, list):
-                    logger.warning(f"Некорректный формат данных от парсера для файла {file_path}. Пропуск.")
-                    continue
+    def process_file(self, file_path):
+        """
+        Обрабатывает отдельный файл Python.
+        """
+        logger.info(f"Обработка файла: {file_path}")
+        try:
+            # Парсинг Python файла
+            parsed_file_data = parse_python_code(file_path, self.project_root)
 
-                # Добавляем данные в область через JSONManager
-                self.add_chunks("python_files", parsed_file_data)
-                logger.info(f"Файл успешно обработан: {file_path}")
+            # Проверяем, что парсер вернул корректные данные
+            if not parsed_file_data or not isinstance(parsed_file_data, list):
+                logger.warning(f"Некорректный формат данных от парсера для файла {file_path}. Пропуск.")
+                return
 
-            except FileNotFoundError as e:
-                logger.error(f"Ошибка: Python файл не найден. {e}")
-            except RuntimeError as e:
-                logger.error(f"Ошибка выполнения парсера для файла {file_path}: {e}")
-            except ValueError as e:
-                logger.error(f"Ошибка парсинга файла {file_path}: {e}")
-            except Exception as e:
-                logger.error(f"Неизвестная ошибка при обработке файла {file_path}: {e}")
+            # Добавляем данные в область через JSONManager
+            self.add_chunks("python_files", parsed_file_data)
+            logger.info(f"Файл успешно обработан: {file_path}")
+
+        except FileNotFoundError as e:
+            logger.error(f"Ошибка: Python файл не найден. {e}")
+        except RuntimeError as e:
+            logger.error(f"Ошибка выполнения парсера для файла {file_path}: {e}")
+        except ValueError as e:
+            logger.error(f"Ошибка парсинга файла {file_path}: {e}")
+        except Exception as e:
+            logger.error(f"Неизвестная ошибка при обработке файла {file_path}: {e}")
