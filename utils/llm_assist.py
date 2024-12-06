@@ -4,7 +4,7 @@ from dotenv import load_dotenv
 
 class LLMAssist:
     """
-    Класс для взаимодействия с LM Studio и выполнения запросов к заданной модели.
+    Класс для взаимодействия с LM Studio через эндпоинт /v1/chat/completions.
     """
 
     def __init__(self, project_type):
@@ -23,22 +23,29 @@ class LLMAssist:
         # Проверка обязательных параметров
         self.success = bool(self.server_url and self.model_name)
 
-    def query(self, prompt, temperature=0.7, max_tokens=256):
+    def query(self, user_message, system_message=None, temperature=0.7, max_tokens=256):
         """
-        Отправляет запрос на LM Studio сервер через /v1/completions.
+        Отправляет запрос на LM Studio сервер через /v1/chat/completions.
 
-        :param prompt: Текстовый запрос для модели.
-        :param temperature: Уровень случайности генерации ответа (0.0 - детерминированный, 1.0 - максимальная случайность).
+        :param user_message: Сообщение пользователя.
+        :param system_message: Сообщение системы (контекст, необязательно).
+        :param temperature: Уровень случайности генерации ответа.
         :param max_tokens: Максимальное количество токенов в ответе.
         :return: Ответ модели в виде строки.
         """
         if not self.success:
             raise RuntimeError("Не удалось инициализировать LLMAssist.")
 
+        # Формирование сообщений для модели
+        messages = []
+        if system_message:
+            messages.append({"role": "system", "content": system_message})
+        messages.append({"role": "user", "content": user_message})
+
         # Формирование тела запроса
         payload = {
-            "prompt": prompt,
             "model": self.model_name,
+            "messages": messages,
             "temperature": temperature,
             "max_tokens": max_tokens
         }
@@ -47,7 +54,7 @@ class LLMAssist:
             # Логируем запрос
             print(f"Отправка запроса: {payload}")
 
-            # Отправляем запрос на /v1/completions
+            # Отправляем запрос на /v1/chat/completions
             response = requests.post(self.server_url, json=payload)
 
             # Логируем ответ
@@ -60,9 +67,9 @@ class LLMAssist:
             # Парсинг JSON-ответа
             response_data = response.json()
 
-            # Извлечение текста из choices[0]["text"]
+            # Извлечение текста из choices[0]["message"]["content"]
             if "choices" in response_data and len(response_data["choices"]) > 0:
-                return response_data["choices"][0].get("text", "Нет текста в ответе.")
+                return response_data["choices"][0]["message"].get("content", "Нет текста в ответе.")
             else:
                 raise ValueError(f"Некорректный ответ модели: {response_data}")
 
@@ -80,21 +87,39 @@ class LLMAssist:
         if not self.success:
             raise RuntimeError("Не удалось инициализировать LLMAssist.")
 
+        # Максимальная длина сообщения
+        max_length = 4096
+
         # Если содержимое файла пустое
         if not file_code.strip():
-            prompt = (
+            user_message = (
                 f"Тип проекта: {self.project_type}\n"
                 f"Опиши назначение файла с именем {file_name}. Файл пуст или недоступен."
             )
+            user_messages = [user_message]
         else:
-            max_code_length = 3500  # Ограничение на длину содержимого файла
+            max_code_length = 3500  # Ограничение на длину содержимого файла для сокращения
             if len(file_code) > max_code_length:
                 file_code = file_code[:max_code_length] + "\n\n[Содержимое файла сокращено...]"
 
-            prompt = (
-                f"Тип проекта: {self.project_type}\n"
-                f"Опиши назначение файла с именем {file_name}. Вот содержимое файла:\n\n{file_code}"
+            user_message = (
+                f"Опиши назначение файла в проекте {self.project_type} с именем {file_name}. Вот содержимое файла:\n\n{file_code}\n"
+                f"Отвечай строго по-существу на русском языке. Не цитируй исходный код файла или промпт пользователя.\n"
+                f"Ответ формируй сжато без лишних пояснений."
             )
 
-        # Увеличиваем max_tokens для получения более полного ответа
-        return self.query(prompt, max_tokens=512)
+            # Разделяем сообщение, если оно длиннее max_length
+            user_messages = [user_message[i:i + max_length] for i in range(0, len(user_message), max_length)]
+
+        # Формируем системное сообщение (опционально)
+        system_message = (
+            "Вы анализируете PHP-файлы Yii2, кратко описывая их назначение, классы, методы, связи и роль в структуре MVC с учётом ActiveRecord, конфигураций, модулей и компонентов."
+        )
+
+        # Обработка сообщений по частям
+        result = ""
+        for part in user_messages:
+            response = self.query(user_message=part, system_message=system_message, max_tokens=512, temperature=0.3)
+            result += response.strip() + "\n"
+
+        return result.strip()

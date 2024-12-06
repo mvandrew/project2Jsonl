@@ -140,7 +140,6 @@ def parse_php_code(file_path, source_dir, php_parser_script="php_parser.php", pr
         raise RuntimeError(f"Unable to read the file {file_path}: {e}")
 
     if llm_assist.success:
-        file_code = file_code[:256]
         description = llm_assist.describe_file(relative_path, file_code)
     else:
         description = f"PHP file: {file_name}"
