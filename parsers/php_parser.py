@@ -59,11 +59,16 @@ def parse_php_code(file_path, source_dir, php_parser_script="php_parser.php", pr
 
     # Формируем данные о классах
     for class_data in parsed_data.get("classes", []):
+        if llm_assist.success:
+            description = llm_assist.describe_class(class_data["name"], class_data.get("code"))
+        else:
+            description = f"Class definition: {class_data['name']}"
+
         class_chunk = {
             "id": generate_id(),
             "type": "class",
             "name": class_data["name"],  # Имя класса
-            "description": f"Class definition: {class_data['name']}",
+            "description": description,
             "code": class_data.get("code"),  # Исходный код класса
             "methods": [],
             "properties": []

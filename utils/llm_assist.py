@@ -120,3 +120,48 @@ class LLMAssist:
             result += response.strip() + "\n"
 
         return result.strip()
+
+    def describe_class(self, class_name, class_code):
+        """
+        Описывает назначение класса на основе его имени и содержимого.
+
+        :param class_name: Имя класса.
+        :param class_code: Содержимое кода класса.
+        :return: Описание назначения класса.
+        """
+        if not self.success:
+            raise RuntimeError("Не удалось инициализировать LLMAssist.")
+
+        # Максимальная длина сообщения
+        max_length = 4096
+
+        # Если содержимое класса пустое
+        if not class_code.strip():
+            user_message = f"Определи назначение PHP-класса {class_name} в проекте {self.project_type}. Код класса отсутствует или пуст."
+            user_messages = [user_message]
+        else:
+            max_code_length = 3500  # Ограничение на длину содержимого класса для сокращения
+            if len(class_code) > max_code_length:
+                class_code = class_code[:max_code_length] + "\n\n[Содержимое класса сокращено...]"
+
+            user_message = (
+                f"Опиши на русском языке назначение PHP-класса {class_name} в проекте {self.project_type}.\n"
+                f"Не цитируй код класса или промпт пользователя.\n"
+                f"Содержимое:\n\n{class_code}"
+            )
+
+            # Разделяем сообщение, если оно длиннее max_length
+            user_messages = [user_message[i:i + max_length] for i in range(0, len(user_message), max_length)]
+
+        # Формируем системное сообщение
+        system_message = (
+            "Вы ассистент для анализа PHP-классов в проекте Yii2. Определяйте назначение классов, методов и их связей кратко и по существу."
+        )
+
+        # Обработка сообщений по частям
+        result = ""
+        for part in user_messages:
+            response = self.query(user_message=part, system_message=system_message, max_tokens=256, temperature=0.4)
+            result += response.strip() + "\n"
+
+        return result.strip()
