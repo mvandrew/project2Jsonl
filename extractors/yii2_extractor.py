@@ -123,7 +123,7 @@ class Yii2Extractor(BaseExtractor):
         logger.info(f"Обработка файла: {file_path}")
         try:
             # Вызываем PHP-парсер для анализа файла
-            parsed_file_data = parse_php_code(file_path, self.project_root)
+            parsed_file_data = parse_php_code(file_path=file_path, source_dir=self.project_root, project_type="yii2")
 
             # Проверяем, что парсер вернул корректные данные
             if not parsed_file_data or not isinstance(parsed_file_data, list):

@@ -3,9 +3,10 @@ import json
 import os
 from utils.common import generate_id
 from datetime import datetime
+from utils.llm_assist import LLMAssist
 
 
-def parse_php_code(file_path, source_dir, php_parser_script="php_parser.php"):
+def parse_php_code(file_path, source_dir, php_parser_script="php_parser.php", project_type=None):
     """
     Парсит PHP-файл, вызывая PHP-скрипт, и возвращает извлеченные данные.
 
@@ -14,6 +15,9 @@ def parse_php_code(file_path, source_dir, php_parser_script="php_parser.php"):
     :param php_parser_script: Путь к PHP-скрипту.
     :return: Список чанков, извлеченных из PHP-файла.
     """
+    # Инициализируем LLMAssist
+    llm_assist = LLMAssist(project_type)
+
     # Преобразуем путь к PHP-скрипту в абсолютный
     php_parser_script = os.path.abspath(php_parser_script)
 
@@ -128,12 +132,25 @@ def parse_php_code(file_path, source_dir, php_parser_script="php_parser.php"):
         }
         chunks.append(namespace_chunk)
 
+    # Описание файла с помощью LLMAssist
+    try:
+        with open(file_path, 'r', encoding='utf-8') as file:
+            file_code = file.read()
+    except Exception as e:
+        raise RuntimeError(f"Unable to read the file {file_path}: {e}")
+
+    if llm_assist.success:
+        file_code = file_code[:256]
+        description = llm_assist.describe_file(relative_path, file_code)
+    else:
+        description = f"PHP file: {file_name}"
+
     # Формируем итоговую структуру для файла
     file_metadata = {
         "id": generate_id(),
         "type": "file",
         "name": file_name,
-        "description": f"PHP file: {file_name}",
+        "description": description,
         "code": None,  # По умолчанию None, добавим полный код, если chunks пуст
         "metadata": {
             "source": relative_path,
@@ -147,10 +164,6 @@ def parse_php_code(file_path, source_dir, php_parser_script="php_parser.php"):
 
     # Если chunks пусты, добавляем полный исходный код файла
     if not chunks:
-        try:
-            with open(file_path, 'r', encoding='utf-8') as file:
-                file_metadata["code"] = file.read()
-        except Exception as e:
-            raise RuntimeError(f"Unable to read the file {file_path}: {e}")
+        file_metadata["code"] = file_code
 
     return [file_metadata]
