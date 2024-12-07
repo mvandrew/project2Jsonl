@@ -1,6 +1,8 @@
+import json
 import requests
 import os
 from dotenv import load_dotenv
+from utils.query_cache import get_cached_response, save_response
 
 class LLMAssist:
     """
@@ -50,6 +52,15 @@ class LLMAssist:
             "max_tokens": max_tokens
         }
 
+        # Преобразование payload в строку для использования в кэшировании
+        cache_key = json.dumps(payload, sort_keys=True)
+
+        # Проверка кэша
+        cached_response = get_cached_response(cache_key)
+        if cached_response:
+            print("Ответ получен из кэша.")
+            return cached_response
+
         try:
             # Логируем запрос
             print(f"Отправка запроса: {payload}")
@@ -69,7 +80,12 @@ class LLMAssist:
 
             # Извлечение текста из choices[0]["message"]["content"]
             if "choices" in response_data and len(response_data["choices"]) > 0:
-                return response_data["choices"][0]["message"].get("content", "Нет текста в ответе.")
+                content = response_data["choices"][0]["message"].get("content", "Нет текста в ответе.")
+
+                # Сохраняем в кэш
+                save_response(cache_key, content)
+
+                return content
             else:
                 raise ValueError(f"Некорректный ответ модели: {response_data}")
 
