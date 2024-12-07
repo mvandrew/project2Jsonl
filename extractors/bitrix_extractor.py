@@ -35,7 +35,8 @@ class BitrixExtractor(BaseExtractor):
         excluded_dirs.extend([
             os.path.join(project_root, "bitrix"),
             "node_modules",
-            "vendor"
+            "vendor",
+            os.path.join(project_root, "local", ".migration")
         ])
         super().__init__(project_root, output_dir, prefix, json_manager, chunk_size, excluded_dirs, included_files)
 
