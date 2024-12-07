@@ -5,6 +5,7 @@ from formatters.json_manager import JSONManager
 from extractors.python_extractor import PythonExtractor
 from extractors.yii2_extractor import Yii2Extractor
 from extractors.react_extractor import ReactExtractor
+from extractors.bitrix_extractor import BitrixExtractor
 
 # Загрузка конфигурации
 load_dotenv()
@@ -88,6 +89,20 @@ def process_project():
         )
         react_extractor.extract()
         logger.info("Обработка React завершена.")
+
+    if "bitrix" in PROJECT_TYPES:
+        logger.info("Обработка Bitrix файлов...")
+        bitrix_extractor = BitrixExtractor(
+            project_root=SOURCE_DIR,
+            output_dir=OUTPUT_DIR,
+            prefix=PROJECT_PREFIX,
+            json_manager=json_manager,
+            chunk_size=CHUNK_SIZE,
+            excluded_dirs=EXCLUDED_DIRS,
+            included_files=INCLUDED_FILES
+        )
+        bitrix_extractor.extract()
+        logger.info("Обработка Bitrix завершена.")
 
     # Здесь можно добавить обработку других типов проектов:
     # if "laravel" in PROJECT_TYPES:
