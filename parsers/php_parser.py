@@ -10,6 +10,7 @@ def parse_php_code(file_path, source_dir, php_parser_script="php_parser.php", pr
     """
     Парсит PHP-файл, вызывая PHP-скрипт, и возвращает извлеченные данные.
 
+    :param project_type: Тип проекта (например, "laravel").
     :param file_path: Путь к файлу, который нужно разобрать.
     :param source_dir: Корень проекта, относительно которого формируется путь.
     :param php_parser_script: Путь к PHP-скрипту.

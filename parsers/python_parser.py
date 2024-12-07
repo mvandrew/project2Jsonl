@@ -2,16 +2,21 @@ import ast
 import os
 from utils.common import generate_id
 from datetime import datetime
+from utils.llm_assist import LLMAssist
 
 
-def parse_python_code(file_path, source_dir):
+def parse_python_code(file_path, source_dir, project_type=None):
     """
     Парсит Python-файл, извлекая классы, функции, глобальные переменные, импортируемые модули.
 
+    :param project_type: Тип проекта (например, "django").
     :param file_path: Путь к файлу, который нужно разобрать.
     :param source_dir: Корень проекта, относительно которого формируется путь.
     :return: Список извлеченных данных в виде чанков.
     """
+    # Инициализируем LLMAssist
+    llm_assist = LLMAssist(project_type)
+
     with open(file_path, 'r', encoding='utf-8') as file:
         content = file.read()
 
@@ -116,12 +121,24 @@ def parse_python_code(file_path, source_dir):
     chunks.extend(functions)
     chunks.extend(classes)
 
+    # Описание файла с помощью LLMAssist
+    try:
+        with open(file_path, 'r', encoding='utf-8') as file:
+            file_code = file.read()
+    except Exception as e:
+        raise RuntimeError(f"Unable to read the file {file_path}: {e}")
+
+    if llm_assist.success:
+        description = llm_assist.describe_file(relative_path, file_code)
+    else:
+        description = f"Python file: {file_name}"
+
     # Финальная структура файла
     file_metadata = {
         "id": generate_id(),
         "type": "file",
         "name": file_name,
-        "description": f"Python file: {file_name}",
+        "description": description,
         "code": None,  # При необходимости можно включить весь исходный код
         "metadata": {
             "source": relative_path,
