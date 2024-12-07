@@ -88,11 +88,17 @@ def parse_python_code(file_path, source_dir, project_type=None):
 
         # Обработка классов
         elif isinstance(node, ast.ClassDef):
+            # Описание класса
+            if llm_assist.success:
+                description = llm_assist.describe_class(node.name, ast.get_source_segment(content, node))
+            else:
+                description = f"Class definition: {node.name}"
+
             class_data = {
                 "id": generate_id(),
                 "type": "class",  # Тип узла
                 "name": node.name,  # Имя класса
-                "description": f"Class definition: {node.name}",  # Описание класса
+                "description": description,  # Описание класса
                 "code": ast.get_source_segment(content, node),  # Исходный код класса
                 "start_line": node.lineno,  # Начальная строка
                 "end_line": getattr(node, "end_lineno", None),  # Конечная строка
@@ -104,11 +110,17 @@ def parse_python_code(file_path, source_dir, project_type=None):
             for class_node in node.body:
                 # Извлечение методов
                 if isinstance(class_node, ast.FunctionDef):
+                    # Описание метода
+                    if llm_assist.success:
+                        description = llm_assist.describe_class_method(class_node.name, ast.get_source_segment(content, class_node), node.name, class_data["description"])
+                    else:
+                        description = f"Method {class_node.name} in class {node.name}"
+
                     method_data = {
                         "id": generate_id(),
                         "type": "method",  # Тип узла
                         "name": class_node.name,  # Имя метода
-                        "description": f"Method {class_node.name} in class {node.name}",  # Описание метода
+                        "description": description,  # Описание метода
                         "code": ast.get_source_segment(content, class_node),  # Исходный код метода
                         "start_line": class_node.lineno,  # Начальная строка метода
                         "end_line": getattr(class_node, "end_lineno", None),  # Конечная строка метода
