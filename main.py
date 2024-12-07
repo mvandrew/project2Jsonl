@@ -16,6 +16,7 @@ CHUNK_SIZE = int(os.getenv("CHUNK_SIZE", "5000"))
 PROJECT_TYPES = os.getenv("PROJECT_TYPES", "").split(",")  # Список типов проектов
 MAX_SUMMARY_FILE_SIZE = int(os.getenv("MAX_SUMMARY_FILE_SIZE", "1048576"))
 INCLUDED_FILES = os.getenv("INCLUDED_FILES", "").split(",")
+INCLUDED_FILES = [f.strip() for f in INCLUDED_FILES if f.strip()] or None
 
 # Настройка глобального логгера
 logger = setup_global_logger(PROJECT_PREFIX)
