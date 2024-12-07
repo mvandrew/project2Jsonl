@@ -252,3 +252,66 @@ class LLMAssist:
             result += response.strip() + "\n"
 
         return result.strip()
+
+    def describe_global_function(self, function_name, function_code, file_name):
+        """
+        Описывает назначение глобальной функции на основе её имени и содержимого.
+
+        :param function_name: Имя функции.
+        :param function_code: Содержимое кода функции.
+        :param file_name: Имя файла, в котором определена функция.
+        :return: Описание назначения функции.
+        """
+        if not self.success:
+            raise RuntimeError("Не удалось инициализировать LLMAssist.")
+
+        # Максимальная длина сообщения
+        max_length = 4096
+
+        # Если содержимое функции пустое
+        if not function_code.strip():
+            user_message = (
+                f"Определи назначение глобальной функции {function_name}, определённой в файле {file_name} проекта {self.project_type}.\n"
+                f"Код функции отсутствует или пуст."
+            )
+            user_messages = [user_message]
+        else:
+            max_code_length = 3500  # Ограничение на длину содержимого функции для сокращения
+            if len(function_code) > max_code_length:
+                function_code = function_code[:max_code_length] + "\n\n[Содержимое функции сокращено...]"
+
+            user_message = (
+                f"Опиши на русском языке назначение глобальной функции {function_name}, определённой в файле {file_name} проекта {self.project_type}.\n"
+                f"Не цитируй код функции или промпт пользователя.\n"
+                f"Содержимое функции:\n\n{function_code}"
+            )
+
+            # Разделяем сообщение, если оно длиннее max_length
+            user_messages = [user_message[i:i + max_length] for i in range(0, len(user_message), max_length)]
+
+        # Формируем системное сообщение в зависимости от типа проекта
+        if self.project_type == "yii2":
+            system_message = (
+                "Вы ассистент для анализа PHP-проектов в Yii2. "
+                "Определяйте назначение глобальных функций кратко и по существу, с учетом их кода и контекста."
+            )
+        elif self.project_type == "python":
+            system_message = (
+                "Вы ассистент для анализа Python-проектов. "
+                "Определяйте назначение глобальных функций кратко и по существу, с учетом их кода и контекста."
+            )
+        else:
+            # Сообщение по умолчанию
+            system_message = (
+                "Вы ассистент для анализа исходного кода. "
+                "Определяйте назначение элементов кода кратко и по существу, с учетом их контекста."
+            )
+
+        # Обработка сообщений по частям
+        result = ""
+        for part in user_messages:
+            response = self.query(user_message=part, system_message=system_message, max_tokens=256, temperature=0.4)
+            result += response.strip() + "\n"
+
+        return result.strip()
+

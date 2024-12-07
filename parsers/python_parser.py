@@ -69,11 +69,17 @@ def parse_python_code(file_path, source_dir, project_type=None):
 
         # Обработка глобальных функций
         elif isinstance(node, ast.FunctionDef) and isinstance(node.parent, ast.Module):
+            # Описание функции
+            if llm_assist.success:
+                description = llm_assist.describe_global_function(node.name, ast.get_source_segment(content, node), file_name)
+            else:
+                description = f"Function definition: {node.name}"
+
             function_data = {
                 "id": generate_id(),
                 "type": "function",  # Тип узла
                 "name": node.name,  # Имя функции
-                "description": f"Function definition: {node.name}",  # Описание функции
+                "description": description, # Описание функции
                 "code": ast.get_source_segment(content, node),  # Исходный код функции
                 "start_line": node.lineno,  # Начальная строка
                 "end_line": getattr(node, "end_lineno", None),  # Конечная строка (если поддерживается)
