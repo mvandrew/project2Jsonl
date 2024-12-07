@@ -34,9 +34,9 @@ class BitrixExtractor(BaseExtractor):
         excluded_dirs = excluded_dirs or []
         excluded_dirs.extend([
             os.path.join(project_root, "bitrix"),
+            os.path.join(project_root, "upload"),
             "node_modules",
             "vendor",
-            os.path.join(project_root, "local", ".migration")
         ])
         super().__init__(project_root, output_dir, prefix, json_manager, chunk_size, excluded_dirs, included_files)
 
@@ -69,16 +69,15 @@ class BitrixExtractor(BaseExtractor):
 
         # Если included_files не заданы, обрабатываем всю структуру проекта
         for root, dirs, _ in os.walk(self.project_root):
-            # Обрабатываем вложенные каталоги `.default`
-            if ".default" in dirs:
-                dirs.append(os.path.join(root, ".default"))
+            # Проверяем, исключён ли текущий каталог
+            if self.is_excluded(root):
+                logger.info(f"Пропуск исключённого каталога: {root}")
+                # Очищаем `dirs`, чтобы исключить вложенные каталоги из обхода
+                dirs[:] = []
+                continue
 
-            # Фильтруем исключенные директории
+            # Фильтруем исключённые подкаталоги
             dirs[:] = [d for d in dirs if not self.is_excluded(os.path.join(root, d))]
-
-            # Обработка вложенных каталогов `bitrix` в папке `local`
-            if "local" in root.lower() and "bitrix" in dirs:
-                dirs.append(os.path.join(root, "bitrix"))
 
             # Проверяем тип директории
             directory_type = self.detect_directory_type(root)

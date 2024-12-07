@@ -12,6 +12,7 @@ load_dotenv()
 SOURCE_DIR = os.getenv("SOURCE_DIR")
 OUTPUT_DIR = os.getenv("OUTPUT_DIR")
 EXCLUDED_DIRS = os.getenv("EXCLUDED_DIRS", "").split(",")
+EXCLUDED_DIRS = [f.strip() for f in EXCLUDED_DIRS if f.strip()] or None
 PROJECT_PREFIX = os.getenv("PROJECT_PREFIX", "project")
 CHUNK_SIZE = int(os.getenv("CHUNK_SIZE", "5000"))
 PROJECT_TYPES = os.getenv("PROJECT_TYPES", "").split(",")  # Список типов проектов

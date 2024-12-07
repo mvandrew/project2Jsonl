@@ -52,17 +52,29 @@ class BaseExtractor(ABC):
         self.chunk_size = chunk_size
         self.included_files = included_files
 
-    def is_excluded(self, path):
+    def is_excluded(self, directory):
         """
-        Проверяет, находится ли путь в исключенных директориях.
-        :param path: Путь для проверки.
-        :return: True, если путь или его родительский каталог исключен.
+        Проверяет, следует ли исключить данный каталог из обработки.
+
+        :param directory: Абсолютный путь к каталогу.
+        :return: bool - True, если каталог исключён, иначе False.
         """
-        abs_path = os.path.abspath(path)
+        directory = os.path.abspath(directory)  # Путь к проверяемому каталогу
         for excluded in self.excluded_dirs:
-            excluded_path = os.path.abspath(os.path.join(self.project_root, excluded))
-            if abs_path.startswith(excluded_path):
+            # Преобразуем исключение в абсолютный путь относительно корня проекта
+            if not os.path.isabs(excluded):  # Если путь относительный
+                excluded_path = os.path.abspath(os.path.join(self.project_root, excluded))
+            else:  # Если путь уже абсолютный
+                excluded_path = excluded
+
+            # Если исключение указано как имя каталога
+            if os.path.basename(directory) == excluded:
                 return True
+
+            # Если исключение указано как полный путь
+            if directory == excluded_path or directory.startswith(excluded_path + os.sep):
+                return True
+
         return False
 
     def add_chunks(self, scope, data):
