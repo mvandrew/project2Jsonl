@@ -89,11 +89,16 @@ def parse_php_code(file_path, source_dir, php_parser_script="php_parser.php", pr
 
         # Обрабатываем методы класса, если они есть
         for method_data in class_data.get("methods", []):
+            if llm_assist.success:
+                description = llm_assist.describe_class_method(method_data["name"], method_data.get("code"), class_chunk["name"], class_chunk["description"])
+            else:
+                description = f"Method {method_data['name']} in class {class_data['name']}"
+
             method_chunk = {
                 "id": generate_id(),
                 "type": "method",
                 "name": method_data["name"],
-                "description": f"Method {method_data['name']} in class {class_data['name']}",
+                "description": description,
                 "code": method_data.get("code"),
                 "start_line": method_data.get("start_line"),
                 "end_line": method_data.get("end_line"),

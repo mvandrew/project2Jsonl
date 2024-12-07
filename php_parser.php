@@ -10,13 +10,13 @@ use PhpParser\PrettyPrinter;
 class DependencyVisitor extends NodeVisitorAbstract {
     public $dependencies = [];
     public $namespace = null;
-    public $functions = [];
     public $classes = [];
+    public $functions = [];
 
     private $prettyPrinter;
+    private $currentClass = null;
 
     public function __construct() {
-        // Используем PrettyPrinter для получения исходного кода
         $this->prettyPrinter = new PrettyPrinter\Standard();
     }
 
@@ -34,41 +34,38 @@ class DependencyVisitor extends NodeVisitorAbstract {
                 $this->namespace = $node->name ? $node->name->toString() : null;
             }
 
-            // Сбор классов, их методов и свойств
+            // Сбор классов
             if ($node instanceof Node\Stmt\Class_) {
-                $class_data = [
+                // Сохраняем текущий класс
+                $this->currentClass = [
                     'name' => $node->name->toString(),
                     'code' => $this->prettyPrinter->prettyPrint([$node]),
-                    'methods' => [], // Место для хранения методов
-                    'properties' => [] // Место для хранения свойств
+                    'methods' => [],
+                    'properties' => []
                 ];
+            }
 
-                // Извлекаем свойства класса
-                foreach ($node->stmts as $stmt) {
-                    if ($stmt instanceof Node\Stmt\Property) {
-                        foreach ($stmt->props as $prop) {
-                            $class_data['properties'][] = [
-                                'name' => $prop->name->toString(),
-                                'type' => $stmt->type ? $stmt->type->toString() : null,
-                                'modifiers' => $this->getModifiers($stmt),
-                                'default_value' => $prop->default ? $this->prettyPrinter->prettyPrintExpr($prop->default) : null
-                            ];
-                        }
-                    }
-
-                    // Извлекаем методы класса
-                    if ($stmt instanceof Node\Stmt\ClassMethod) {
-                        $class_data['methods'][] = [
-                            'name' => $stmt->name->toString(),
-                            'modifiers' => $this->getModifiers($stmt),
-                            'code' => $this->prettyPrinter->prettyPrint([$stmt]),
-                            'start_line' => $stmt->getStartLine(),
-                            'end_line' => $stmt->getEndLine()
-                        ];
-                    }
+            // Сбор свойств текущего класса
+            if ($this->currentClass && $node instanceof Node\Stmt\Property) {
+                foreach ($node->props as $prop) {
+                    $this->currentClass['properties'][] = [
+                        'name' => $prop->name->toString(),
+                        'type' => $node->type ? $node->type->toString() : null,
+                        'modifiers' => $this->getModifiers($node),
+                        'default_value' => $prop->default ? $this->prettyPrinter->prettyPrintExpr($prop->default) : null
+                    ];
                 }
+            }
 
-                $this->classes[] = $class_data;
+            // Сбор методов текущего класса
+            if ($this->currentClass && $node instanceof Node\Stmt\ClassMethod) {
+                $this->currentClass['methods'][] = [
+                    'name' => $node->name->toString(),
+                    'modifiers' => $this->getModifiers($node),
+                    'code' => $this->prettyPrinter->prettyPrint([$node]),
+                    'start_line' => $node->getStartLine(),
+                    'end_line' => $node->getEndLine()
+                ];
             }
 
             // Сбор глобальных функций
@@ -81,14 +78,20 @@ class DependencyVisitor extends NodeVisitorAbstract {
                 ];
             }
         } catch (Throwable $e) {
-            // Логирование ошибок
             error_log("Error processing node: " . $e->getMessage());
             error_log("Node type: " . get_class($node));
         }
     }
 
+    public function leaveNode(Node $node) {
+        // Завершение обработки класса
+        if ($node instanceof Node\Stmt\Class_) {
+            $this->classes[] = $this->currentClass;
+            $this->currentClass = null; // Сброс текущего класса
+        }
+    }
+
     private function getModifiers($node) {
-        // Извлекаем модификаторы (public, protected, private, static, etc.)
         $modifiers = [];
         if ($node instanceof Node\Stmt\ClassMethod || $node instanceof Node\Stmt\Property) {
             if ($node->isPublic()) $modifiers[] = 'public';

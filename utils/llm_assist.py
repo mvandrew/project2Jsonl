@@ -165,3 +165,55 @@ class LLMAssist:
             result += response.strip() + "\n"
 
         return result.strip()
+
+    def describe_class_method(self, method_name, method_code, class_name, class_description):
+        """
+        Описывает назначение метода класса на основе его имени, содержимого и описания класса.
+
+        :param method_name: Имя метода.
+        :param method_code: Содержимое кода метода.
+        :param class_name: Имя класса, к которому принадлежит метод.
+        :param class_description: Описание назначения класса.
+        :return: Описание назначения метода.
+        """
+        if not self.success:
+            raise RuntimeError("Не удалось инициализировать LLMAssist.")
+
+        # Максимальная длина сообщения
+        max_length = 4096
+
+        # Если содержимое метода пустое
+        if not method_code.strip():
+            user_message = (
+                f"Определи назначение метода {method_name} в классе {class_name}. "
+                f"Код метода отсутствует или пуст. Класс описан как: {class_description}."
+            )
+            user_messages = [user_message]
+        else:
+            max_code_length = 3500  # Ограничение на длину содержимого метода для сокращения
+            if len(method_code) > max_code_length:
+                method_code = method_code[:max_code_length] + "\n\n[Содержимое метода сокращено...]"
+
+            user_message = (
+                f"Опиши на русском языке назначение метода {method_name} в классе {class_name}. "
+                f"Класс описан как: {class_description}.\n"
+                f"Не цитируй код метода или промпт пользователя.\n"
+                f"Содержимое метода:\n\n{method_code}"
+            )
+
+            # Разделяем сообщение, если оно длиннее max_length
+            user_messages = [user_message[i:i + max_length] for i in range(0, len(user_message), max_length)]
+
+        # Формируем системное сообщение
+        system_message = (
+            "Вы ассистент для анализа PHP-классов и их методов в проекте Yii2. "
+            "Определяйте назначение методов кратко и по существу, с учетом контекста класса."
+        )
+
+        # Обработка сообщений по частям
+        result = ""
+        for part in user_messages:
+            response = self.query(user_message=part, system_message=system_message, max_tokens=256, temperature=0.4)
+            result += response.strip() + "\n"
+
+        return result.strip()
