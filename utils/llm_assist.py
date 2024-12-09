@@ -23,6 +23,7 @@ class LLMAssist:
         self.project_type = project_type
         self.max_code_length = int(os.getenv("MAX_CODE_LENGTH", 3500))  # Используем значение из .env или значение по умолчанию
         self.max_tokens = int(os.getenv("MAX_TOKENS", 256))
+        self.max_context_tokens = int(os.getenv("MAX_CONTEXT_TOKENS", 4096))
 
         # Проверка обязательных параметров
         self.success = bool(self.server_url and self.model_name)
