@@ -118,9 +118,17 @@ class LLMAssist:
         else:
             # Разбиваем код на части
             chunks = [file_code[i:i + self.max_code_length] for i in range(0, len(file_code), self.max_code_length)]
-            user_message = f"Опиши на русском языке назначение PHP-файла {file_name}. Содержимое файла разделено на части:\n"
-            for idx, chunk in enumerate(chunks):
-                user_message += f"Часть {idx + 1}/{len(chunks)}:\n\n{chunk}\n"
+            if len(chunks) == 1:
+                # Один чанк, отправляем всё в одном сообщении
+                user_message = (
+                    f"Опиши на русском языке назначение PHP-файла {file_name} в проекте {self.project_type}.\n"
+                    f"Содержимое:\n\n{chunks[0]}"
+                )
+            else:
+                # Несколько чанков, готовим сообщение с разделением
+                user_message = f"Опиши на русском языке назначение PHP-файла {file_name}. Содержимое файла разделено на части:\n"
+                for idx, chunk in enumerate(chunks):
+                    user_message += f"Часть {idx + 1}/{len(chunks)}:\n\n{chunk}\n"
 
         system_message = (
             f"Вы ассистент для анализа PHP-файлов проекта {self.project_type}. "
@@ -146,9 +154,17 @@ class LLMAssist:
         else:
             # Разбиваем код на части
             chunks = [class_code[i:i + self.max_code_length] for i in range(0, len(class_code), self.max_code_length)]
-            user_message = f"Опиши на русском языке назначение PHP-класса {class_name}. Содержимое класса разделено на части:\n"
-            for idx, chunk in enumerate(chunks):
-                user_message += f"Часть {idx + 1}/{len(chunks)}:\n\n{chunk}\n"
+            if len(chunks) == 1:
+                # Один чанк, отправляем всё в одном сообщении
+                user_message = (
+                    f"Опиши на русском языке назначение PHP-класса {class_name} в проекте {self.project_type}.\n"
+                    f"Содержимое:\n\n{chunks[0]}"
+                )
+            else:
+                # Несколько чанков, готовим сообщение с разделением
+                user_message = f"Опиши на русском языке назначение PHP-класса {class_name}. Содержимое класса разделено на части:\n"
+                for idx, chunk in enumerate(chunks):
+                    user_message += f"Часть {idx + 1}/{len(chunks)}:\n\n{chunk}\n"
 
         system_message = (
             f"Вы ассистент для анализа PHP-классов проекта {self.project_type}. "
@@ -179,12 +195,20 @@ class LLMAssist:
         else:
             # Разбиваем код на части
             chunks = [method_code[i:i + self.max_code_length] for i in range(0, len(method_code), self.max_code_length)]
-            user_message = (
-                f"Опиши на русском языке назначение метода {method_name} в классе {class_name}. "
-                f"Описание класса: {class_description}. Содержимое метода разделено на части:\n"
-            )
-            for idx, chunk in enumerate(chunks):
-                user_message += f"Часть {idx + 1}/{len(chunks)}:\n\n{chunk}\n"
+            if len(chunks) == 1:
+                # Один чанк, отправляем всё в одном сообщении
+                user_message = (
+                    f"Опиши на русском языке назначение метода {method_name} в классе {class_name} проекта {self.project_type}.\n"
+                    f"Описание класса: {class_description}.\nСодержимое:\n\n{chunks[0]}"
+                )
+            else:
+                # Несколько чанков, готовим сообщение с разделением
+                user_message = (
+                    f"Опиши на русском языке назначение метода {method_name} в классе {class_name}. "
+                    f"Описание класса: {class_description}. Содержимое метода разделено на части:\n"
+                )
+                for idx, chunk in enumerate(chunks):
+                    user_message += f"Часть {idx + 1}/{len(chunks)}:\n\n{chunk}\n"
 
         system_message = (
             f"Вы ассистент для анализа PHP-классов и их методов проекта {self.project_type}. "
@@ -215,12 +239,20 @@ class LLMAssist:
             # Разбиваем код на части
             chunks = [function_code[i:i + self.max_code_length] for i in
                       range(0, len(function_code), self.max_code_length)]
-            user_message = (
-                f"Опиши на русском языке назначение глобальной функции {function_name}, определённой в файле {file_name}. "
-                f"Содержимое функции разделено на части:\n"
-            )
-            for idx, chunk in enumerate(chunks):
-                user_message += f"Часть {idx + 1}/{len(chunks)}:\n\n{chunk}\n"
+            if len(chunks) == 1:
+                # Один чанк, отправляем всё в одном сообщении
+                user_message = (
+                    f"Опиши на русском языке назначение глобальной функции {function_name}, определённой в файле {file_name} проекта {self.project_type}.\n"
+                    f"Содержимое:\n\n{chunks[0]}"
+                )
+            else:
+                # Несколько чанков, готовим сообщение с разделением
+                user_message = (
+                    f"Опиши на русском языке назначение глобальной функции {function_name}, определённой в файле {file_name}. "
+                    f"Содержимое функции разделено на части:\n"
+                )
+                for idx, chunk in enumerate(chunks):
+                    user_message += f"Часть {idx + 1}/{len(chunks)}:\n\n{chunk}\n"
 
         system_message = (
             f"Вы ассистент для анализа PHP-файлов и их глобальных функций в проекте {self.project_type}. "
