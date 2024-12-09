@@ -6,6 +6,108 @@ from datetime import datetime
 from utils.llm_assist import LLMAssist
 
 
+def get_class_qa(llm_assist, class_chunk):
+    """
+    Формирует раздел вопросов и ответов для дообучения LLM модели на основе данных о классе.
+
+    :param llm_assist: Экземпляр LLMAssist.
+    :param class_chunk: Словарь с информацией о классе.
+    :return: Список словарей с вопросами и ответами.
+    """
+    # Генерация вопросов на основе данных о классе
+    questions = [
+        f"Какая основная цель класса {class_chunk['name']}?",
+        f"Какие свойства есть у класса {class_chunk['name']} и для чего они используются?",
+        f"Какие методы предоставляет класс {class_chunk['name']} и как они работают?",
+        f"Какие модификаторы используются в свойствах и методах класса {class_chunk['name']}?",
+    ]
+
+    if class_chunk.get("properties"):
+        for property_chunk in class_chunk["properties"]:
+            description = property_chunk.get("description", "")
+            code = property_chunk.get("code", "")
+
+            # Добавляем описание и код свойства в вопрос, если они есть
+            if description or code:
+                context = " ".join([
+                    f"Описание: {description}" if description else "",
+                    f"Код:\n{code}" if code else ""
+                ]).strip()
+                questions.append(
+                    f"Что делает свойство {property_chunk['name']} в классе {class_chunk['name']}? {context}"
+                )
+            else:
+                questions.append(f"Что делает свойство {property_chunk['name']} в классе {class_chunk['name']}?")
+
+            if property_chunk.get("default_value") is not None:
+                questions.append(
+                    f"Какое значение по умолчанию у свойства {property_chunk['name']} в классе {class_chunk['name']}?"
+                )
+
+    if class_chunk.get("methods"):
+        for method_chunk in class_chunk["methods"]:
+            description = method_chunk.get("description", "")
+            code = method_chunk.get("code", "")
+
+            # Добавляем описание и код метода в вопрос, если они есть
+            if description or code:
+                context = " ".join([
+                    f"Описание: {description}" if description else "",
+                    f"Код:\n{code}" if code else ""
+                ]).strip()
+                questions.append(
+                    f"Какова цель метода {method_chunk['name']} в классе {class_chunk['name']}? {context}"
+                )
+            else:
+                questions.append(f"Какова цель метода {method_chunk['name']} в классе {class_chunk['name']}?")
+
+            if method_chunk.get("modifiers"):
+                questions.append(
+                    f"Какие модификаторы используются в методе {method_chunk['name']} класса {class_chunk['name']}?"
+                )
+            if method_chunk.get("start_line") is not None and method_chunk.get("end_line") is not None:
+                questions.append(
+                    f"В каких строках определён метод {method_chunk['name']} в классе {class_chunk['name']}?"
+                )
+
+    # Подготовка промпта для модели
+    qa_prompt = (
+        f"Вы ассистент, обучающий на основе кода. Сформулируйте ответы на вопросы о классе {class_chunk['name']} "
+        f"на русском языке. Каждая пара вопрос-ответ должна быть в виде словаря с ключами 'question' и 'answer'. "
+        f"Пример формата:\n"
+        f"[{{'question': 'Ваш вопрос', 'answer': 'Ваш ответ'}}, ...]"
+    )
+
+    # Формируем запрос к модели для получения ответов
+    try:
+        llm_responses = []
+        for question in questions:
+            user_message = f"{qa_prompt}\n\nВопрос: {question}"
+            response = llm_assist.query(user_message=user_message, temperature=0.5)
+            llm_responses.append(response)
+
+        # Обрабатываем ответы модели
+        qa_pairs = []
+        for response in llm_responses:
+            try:
+                # Пробуем загрузить ответ как JSON, если он в формате словаря
+                parsed_response = json.loads(response)
+                if isinstance(parsed_response, dict):
+                    question_text = parsed_response.get("question") or parsed_response.get(
+                        "prompt") or parsed_response.get("q")
+                    answer_text = parsed_response.get("answer") or parsed_response.get("a") or parsed_response.get(
+                        "output")
+                    if question_text and answer_text:
+                        qa_pairs.append({"question": question_text, "answer": answer_text})
+            except json.JSONDecodeError:
+                # Если JSON парсинг не удался, попробуем вручную обработать
+                qa_pairs.append({"question": question, "answer": response.strip()})
+
+        return qa_pairs
+
+    except Exception as e:
+        raise RuntimeError(f"Ошибка при генерации вопросов и ответов для класса {class_chunk['name']}: {e}")
+
 def parse_php_code(file_path, source_dir, php_parser_script="php_parser.php", project_type=None):
     """
     Парсит PHP-файл, вызывая PHP-скрипт, и возвращает извлеченные данные.
@@ -71,6 +173,7 @@ def parse_php_code(file_path, source_dir, php_parser_script="php_parser.php", pr
             "name": class_data["name"],  # Имя класса
             "description": description,
             "code": class_data.get("code"),  # Исходный код класса
+            "qa": [],
             "methods": [],
             "properties": []
         }
@@ -106,6 +209,8 @@ def parse_php_code(file_path, source_dir, php_parser_script="php_parser.php", pr
                 "modifiers": method_data.get("modifiers", [])
             }
             class_chunk["methods"].append(method_chunk)
+
+        class_chunk["qa"] = get_class_qa(llm_assist, class_chunk)
 
         chunks.append(class_chunk)
 
