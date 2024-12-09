@@ -3,6 +3,7 @@ import requests
 import os
 from dotenv import load_dotenv
 from utils.query_cache import get_cached_response, save_response
+from difflib import SequenceMatcher
 
 class LLMAssist:
     """
@@ -27,6 +28,47 @@ class LLMAssist:
 
         # Проверка обязательных параметров
         self.success = bool(self.server_url and self.model_name)
+
+    def similarity(self, text1, text2):
+        """
+        Вычисляет схожесть двух текстов на основе количества совпадающих символов.
+
+        :param text1: Первый текст.
+        :param text2: Второй текст.
+        :return: Коэффициент схожести (от 0 до 1).
+        """
+        return SequenceMatcher(None, text1, text2).ratio()
+
+    def split_into_chunks(self, file_code, system_prompt, user_prompt):
+        """
+        Разбивает исходный код файла на чанки, учитывая max_context_tokens.
+
+        :param file_code: Исходный код файла.
+        :param system_prompt: Системный промпт.
+        :param user_prompt: Пользовательский промпт.
+        :return: Список чанков исходного кода, которые укладываются в ограничение по токенам.
+        """
+        if not file_code.strip():
+            raise ValueError("Исходный код файла пуст.")
+
+        # Вычисляем максимальный размер чанка с учетом промптов и погрешности
+        total_reserved_tokens = len(system_prompt) + len(user_prompt)  # Оценка токенов для промптов
+        max_tokens_for_code = self.max_context_tokens - total_reserved_tokens
+
+        # Учитываем погрешность ~10%
+        max_tokens_for_code = int(max_tokens_for_code * 0.9)
+
+        if max_tokens_for_code <= 0:
+            raise ValueError("Размер контекста слишком мал для размещения кода с промптами.")
+
+        # Преобразуем приблизительное ограничение токенов в количество символов
+        # (предполагая, что 1 токен ≈ 0.5 символа)
+        max_chunk_size = max_tokens_for_code * 2
+
+        # Разбиваем код на чанки
+        chunks = [file_code[i:i + max_chunk_size] for i in range(0, len(file_code), max_chunk_size)]
+
+        return chunks
 
     def query(self, user_message, system_message=None, temperature=0.7, max_tokens=None):
         """
@@ -113,30 +155,27 @@ class LLMAssist:
         if not self.success:
             raise RuntimeError("Не удалось инициализировать LLMAssist.")
 
-        # Если содержимое файла пустое
-        if not file_code.strip():
-            user_message = f"Определи назначение PHP-файла {file_name} в проекте {self.project_type}. Файл пуст."
-        else:
-            # Разбиваем код на части
-            chunks = [file_code[i:i + self.max_code_length] for i in range(0, len(file_code), self.max_code_length)]
-            if len(chunks) == 1:
-                # Один чанк, отправляем всё в одном сообщении
-                user_message = (
-                    f"Опиши на русском языке назначение PHP-файла {file_name} в проекте {self.project_type}.\n"
-                    f"Содержимое:\n\n{chunks[0]}"
-                )
-            else:
-                # Несколько чанков, готовим сообщение с разделением
-                user_message = f"Опиши на русском языке назначение PHP-файла {file_name}. Содержимое файла разделено на части:\n"
-                for idx, chunk in enumerate(chunks):
-                    user_message += f"Часть {idx + 1}/{len(chunks)}:\n\n{chunk}\n"
-
-        system_message = (
+        # Системный и пользовательский промпты
+        system_prompt = (
             f"Вы ассистент для анализа PHP-файлов проекта {self.project_type}. "
             f"Определяйте назначение файлов, классов и методов кратко и по существу."
         )
+        user_prompt = f"Опишите назначение PHP-файла {file_name} в проекте {self.project_type}."
 
-        return self.query(user_message=user_message, system_message=system_message, temperature=0.4)
+        # Разбиваем файл на чанки
+        chunks = self.split_into_chunks(file_code, system_prompt, user_prompt)
+
+        results = []
+        for idx, chunk in enumerate(chunks):
+            user_message = f"Часть {idx + 1}/{len(chunks)}. {user_prompt}\nСодержимое:\n\n{chunk}"
+            try:
+                result = self.query(user_message=user_message, system_message=system_prompt, temperature=0.4)
+                results.append(result)
+            except Exception as e:
+                raise RuntimeError(f"Ошибка при обработке чанка {idx + 1}: {e}")
+
+        # Объединяем результаты
+        return "\n".join(results)
 
     def describe_class(self, class_name, class_code):
         """
@@ -149,30 +188,67 @@ class LLMAssist:
         if not self.success:
             raise RuntimeError("Не удалось инициализировать LLMAssist.")
 
-        # Если содержимое класса пустое
-        if not class_code.strip():
-            user_message = f"Определи назначение PHP-класса {class_name} в проекте {self.project_type}. Код класса отсутствует или пуст."
-        else:
-            # Разбиваем код на части
-            chunks = [class_code[i:i + self.max_code_length] for i in range(0, len(class_code), self.max_code_length)]
-            if len(chunks) == 1:
-                # Один чанк, отправляем всё в одном сообщении
-                user_message = (
-                    f"Опиши на русском языке назначение PHP-класса {class_name} в проекте {self.project_type}.\n"
-                    f"Содержимое:\n\n{chunks[0]}"
-                )
-            else:
-                # Несколько чанков, готовим сообщение с разделением
-                user_message = f"Опиши на русском языке назначение PHP-класса {class_name}. Содержимое класса разделено на части:\n"
-                for idx, chunk in enumerate(chunks):
-                    user_message += f"Часть {idx + 1}/{len(chunks)}:\n\n{chunk}\n"
-
-        system_message = (
+        # Системный и пользовательский промпты
+        system_prompt = (
             f"Вы ассистент для анализа PHP-классов проекта {self.project_type}. "
             f"Определяйте назначение классов, методов и их связей кратко и по существу."
         )
+        user_prompt = f"Опишите назначение PHP-класса {class_name} в проекте {self.project_type}."
 
-        return self.query(user_message=user_message, system_message=system_message, temperature=0.4)
+        # Разбиваем класс на чанки
+        chunks = self.split_into_chunks(class_code, system_prompt, user_prompt)
+
+        # Если только один чанк, возвращаем результат без консолидации
+        if len(chunks) == 1:
+            user_message = f"{user_prompt}\nСодержимое:\n\n{chunks[0]}"
+            return self.query(user_message=user_message, system_message=system_prompt, temperature=0.4)
+
+        results = []
+        accumulated_context = ""  # Для хранения контекста ответов ассистента
+
+        for idx, chunk in enumerate(chunks):
+            # Формируем сообщение с учетом контекста предыдущих частей
+            user_message = (
+                f"Часть {idx + 1}/{len(chunks)}. {user_prompt}\nСодержимое:\n\n{chunk}"
+            )
+            if accumulated_context:
+                user_message += f"\n\nКонтекст предыдущих частей:\n{accumulated_context}"
+
+            try:
+                result = self.query(user_message=user_message, system_message=system_prompt, temperature=0.4)
+                results.append(result)
+                if idx > 0 and self.similarity(results[-1], results[-2]) > 0.9:
+                    # Если два подряд результата похожи на 90%, прекращаем обработку
+                    if len(results) < 3:
+                        return results[0]  # Если менее трех ответов, возвращаем первый
+                    break
+                accumulated_context = result  # Обновляем контекст для следующей части
+            except Exception as e:
+                raise RuntimeError(f"Ошибка при обработке чанка {idx + 1}: {e}")
+
+        # Если менее трех результатов, возвращаем первый
+        if len(results) < 3:
+            return results[0]
+
+        # Формируем запрос на консолидацию
+        consolidated_prompt = (
+            f"Вы ассистент для анализа PHP-классов проекта {self.project_type}. "
+            f"Объедините результаты анализа всех частей кода для класса {class_name} "
+            f"и предоставьте итоговое описание назначения класса и его структуры."
+        )
+        consolidated_user_message = "\n\n".join(
+            [f"Ответ на часть {idx + 1}/{len(results)}:\n{result}" for idx, result in enumerate(results)]
+        )
+
+        try:
+            consolidated_result = self.query(
+                user_message=consolidated_user_message,
+                system_message=consolidated_prompt,
+                temperature=0.4
+            )
+            return consolidated_result
+        except Exception as e:
+            raise RuntimeError(f"Ошибка при консолидации результатов: {e}")
 
     def describe_class_method(self, method_name, method_code, class_name, class_description):
         """
@@ -187,36 +263,30 @@ class LLMAssist:
         if not self.success:
             raise RuntimeError("Не удалось инициализировать LLMAssist.")
 
-        # Если содержимое метода пустое
-        if not method_code.strip():
-            user_message = (
-                f"Определи назначение метода {method_name} в классе {class_name} проекта {self.project_type}. "
-                f"Код метода отсутствует или пуст. Класс описан как: {class_description}."
-            )
-        else:
-            # Разбиваем код на части
-            chunks = [method_code[i:i + self.max_code_length] for i in range(0, len(method_code), self.max_code_length)]
-            if len(chunks) == 1:
-                # Один чанк, отправляем всё в одном сообщении
-                user_message = (
-                    f"Опиши на русском языке назначение метода {method_name} в классе {class_name} проекта {self.project_type}.\n"
-                    f"Описание класса: {class_description}.\nСодержимое:\n\n{chunks[0]}"
-                )
-            else:
-                # Несколько чанков, готовим сообщение с разделением
-                user_message = (
-                    f"Опиши на русском языке назначение метода {method_name} в классе {class_name}. "
-                    f"Описание класса: {class_description}. Содержимое метода разделено на части:\n"
-                )
-                for idx, chunk in enumerate(chunks):
-                    user_message += f"Часть {idx + 1}/{len(chunks)}:\n\n{chunk}\n"
-
-        system_message = (
+        # Системный и пользовательский промпты
+        system_prompt = (
             f"Вы ассистент для анализа PHP-классов и их методов проекта {self.project_type}. "
             f"Определяйте назначение методов кратко и по существу, с учетом контекста класса."
         )
+        user_prompt = (
+            f"Опишите назначение метода {method_name} в классе {class_name} проекта {self.project_type}. "
+            f"Описание класса: {class_description}."
+        )
 
-        return self.query(user_message=user_message, system_message=system_message, temperature=0.4)
+        # Разбиваем метод на чанки
+        chunks = self.split_into_chunks(method_code, system_prompt, user_prompt)
+
+        results = []
+        for idx, chunk in enumerate(chunks):
+            user_message = f"Часть {idx + 1}/{len(chunks)}. {user_prompt}\nСодержимое:\n\n{chunk}"
+            try:
+                result = self.query(user_message=user_message, system_message=system_prompt, temperature=0.4)
+                results.append(result)
+            except Exception as e:
+                raise RuntimeError(f"Ошибка при обработке чанка {idx + 1}: {e}")
+
+        # Объединяем результаты
+        return "\n".join(results)
 
     def describe_global_function(self, function_name, function_code, file_name):
         """
@@ -230,34 +300,26 @@ class LLMAssist:
         if not self.success:
             raise RuntimeError("Не удалось инициализировать LLMAssist.")
 
-        # Если содержимое функции пустое
-        if not function_code.strip():
-            user_message = (
-                f"Определи назначение глобальной функции {function_name}, определённой в файле {file_name} проекта {self.project_type}. "
-                f"Код функции отсутствует или пуст."
-            )
-        else:
-            # Разбиваем код на части
-            chunks = [function_code[i:i + self.max_code_length] for i in
-                      range(0, len(function_code), self.max_code_length)]
-            if len(chunks) == 1:
-                # Один чанк, отправляем всё в одном сообщении
-                user_message = (
-                    f"Опиши на русском языке назначение глобальной функции {function_name}, определённой в файле {file_name} проекта {self.project_type}.\n"
-                    f"Содержимое:\n\n{chunks[0]}"
-                )
-            else:
-                # Несколько чанков, готовим сообщение с разделением
-                user_message = (
-                    f"Опиши на русском языке назначение глобальной функции {function_name}, определённой в файле {file_name}. "
-                    f"Содержимое функции разделено на части:\n"
-                )
-                for idx, chunk in enumerate(chunks):
-                    user_message += f"Часть {idx + 1}/{len(chunks)}:\n\n{chunk}\n"
-
-        system_message = (
+        # Системный и пользовательский промпты
+        system_prompt = (
             f"Вы ассистент для анализа PHP-файлов и их глобальных функций в проекте {self.project_type}. "
             f"Определяйте назначение функций кратко и по существу."
         )
+        user_prompt = (
+            f"Опишите назначение глобальной функции {function_name}, определённой в файле {file_name} проекта {self.project_type}."
+        )
 
-        return self.query(user_message=user_message, system_message=system_message, temperature=0.4)
+        # Разбиваем функцию на чанки
+        chunks = self.split_into_chunks(function_code, system_prompt, user_prompt)
+
+        results = []
+        for idx, chunk in enumerate(chunks):
+            user_message = f"Часть {idx + 1}/{len(chunks)}. {user_prompt}\nСодержимое:\n\n{chunk}"
+            try:
+                result = self.query(user_message=user_message, system_message=system_prompt, temperature=0.4)
+                results.append(result)
+            except Exception as e:
+                raise RuntimeError(f"Ошибка при обработке чанка {idx + 1}: {e}")
+
+        # Объединяем результаты
+        return "\n".join(results)
