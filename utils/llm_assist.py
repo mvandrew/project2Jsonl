@@ -55,11 +55,13 @@ class LLMAssist:
         # Преобразование payload в строку для использования в кэшировании
         cache_key = json.dumps(payload, sort_keys=True)
 
-        # Проверка кэша
-        cached_response = get_cached_response(cache_key)
-        if cached_response:
-            print("Ответ получен из кэша.")
-            return cached_response
+        # Проверка необходимости использования кэша
+        use_cache = os.getenv("USE_CACHE", "true").lower() == "true"
+        if use_cache:
+            cached_response = get_cached_response(cache_key)
+            if cached_response:
+                print("Ответ получен из кэша.")
+                return cached_response
 
         try:
             # Логируем запрос
@@ -82,8 +84,9 @@ class LLMAssist:
             if "choices" in response_data and len(response_data["choices"]) > 0:
                 content = response_data["choices"][0]["message"].get("content", "Нет текста в ответе.")
 
-                # Сохраняем в кэш
-                save_response(cache_key, content)
+                # Сохраняем в кэш, если кэширование включено
+                if use_cache:
+                    save_response(cache_key, content)
 
                 return content
             else:
