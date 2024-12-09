@@ -144,59 +144,17 @@ class LLMAssist:
         except Exception as e:
             raise RuntimeError(f"Ошибка при взаимодействии с LLM: {e}")
 
-    def describe_file(self, file_name, file_code):
+    def process_code_chunks(self, code, system_prompt, user_prompt):
         """
-        Описывает назначение файла на основе его имени и содержимого.
+        Общая функция для обработки исходного кода, разделенного на чанки.
 
-        :param file_name: Имя файла.
-        :param file_code: Содержимое файла.
-        :return: Описание назначения файла.
+        :param code: Исходный код.
+        :param system_prompt: Системный промпт.
+        :param user_prompt: Пользовательский промпт.
+        :return: Итоговое описание или консолидация результатов.
         """
-        if not self.success:
-            raise RuntimeError("Не удалось инициализировать LLMAssist.")
-
-        # Системный и пользовательский промпты
-        system_prompt = (
-            f"Вы ассистент для анализа PHP-файлов проекта {self.project_type}. "
-            f"Определяйте назначение файлов, классов и методов кратко и по существу."
-        )
-        user_prompt = f"Опишите назначение PHP-файла {file_name} в проекте {self.project_type}."
-
-        # Разбиваем файл на чанки
-        chunks = self.split_into_chunks(file_code, system_prompt, user_prompt)
-
-        results = []
-        for idx, chunk in enumerate(chunks):
-            user_message = f"Часть {idx + 1}/{len(chunks)}. {user_prompt}\nСодержимое:\n\n{chunk}"
-            try:
-                result = self.query(user_message=user_message, system_message=system_prompt, temperature=0.4)
-                results.append(result)
-            except Exception as e:
-                raise RuntimeError(f"Ошибка при обработке чанка {idx + 1}: {e}")
-
-        # Объединяем результаты
-        return "\n".join(results)
-
-    def describe_class(self, class_name, class_code):
-        """
-        Описывает назначение класса на основе его имени и содержимого.
-
-        :param class_name: Имя класса.
-        :param class_code: Содержимое кода класса.
-        :return: Описание назначения класса.
-        """
-        if not self.success:
-            raise RuntimeError("Не удалось инициализировать LLMAssist.")
-
-        # Системный и пользовательский промпты
-        system_prompt = (
-            f"Вы ассистент для анализа PHP-классов проекта {self.project_type}. "
-            f"Определяйте назначение классов, методов и их связей кратко и по существу."
-        )
-        user_prompt = f"Опишите назначение PHP-класса {class_name} в проекте {self.project_type}."
-
-        # Разбиваем класс на чанки
-        chunks = self.split_into_chunks(class_code, system_prompt, user_prompt)
+        # Разбиваем код на чанки
+        chunks = self.split_into_chunks(code, system_prompt, user_prompt)
 
         # Если только один чанк, возвращаем результат без консолидации
         if len(chunks) == 1:
@@ -208,21 +166,21 @@ class LLMAssist:
 
         for idx, chunk in enumerate(chunks):
             # Формируем сообщение с учетом контекста предыдущих частей
-            user_message = (
-                f"Часть {idx + 1}/{len(chunks)}. {user_prompt}\nСодержимое:\n\n{chunk}"
-            )
+            user_message = f"Часть {idx + 1}/{len(chunks)}. {user_prompt}\nСодержимое:\n\n{chunk}"
             if accumulated_context:
                 user_message += f"\n\nКонтекст предыдущих частей:\n{accumulated_context}"
 
             try:
                 result = self.query(user_message=user_message, system_message=system_prompt, temperature=0.4)
                 results.append(result)
+
+                # Проверяем схожесть последних двух ответов
                 if idx > 0 and self.similarity(results[-1], results[-2]) > 0.9:
-                    # Если два подряд результата похожи на 90%, прекращаем обработку
                     if len(results) < 3:
                         return results[0]  # Если менее трех ответов, возвращаем первый
                     break
-                accumulated_context = result  # Обновляем контекст для следующей части
+
+                accumulated_context = result  # Обновляем контекст
             except Exception as e:
                 raise RuntimeError(f"Ошибка при обработке чанка {idx + 1}: {e}")
 
@@ -232,9 +190,8 @@ class LLMAssist:
 
         # Формируем запрос на консолидацию
         consolidated_prompt = (
-            f"Вы ассистент для анализа PHP-классов проекта {self.project_type}. "
-            f"Объедините результаты анализа всех частей кода для класса {class_name} "
-            f"и предоставьте итоговое описание назначения класса и его структуры."
+            f"Вы ассистент для анализа исходного кода. "
+            f"Объедините результаты анализа всех частей кода и предоставьте итоговое описание."
         )
         consolidated_user_message = "\n\n".join(
             [f"Ответ на часть {idx + 1}/{len(results)}:\n{result}" for idx, result in enumerate(results)]
@@ -250,6 +207,36 @@ class LLMAssist:
         except Exception as e:
             raise RuntimeError(f"Ошибка при консолидации результатов: {e}")
 
+    def describe_file(self, file_name, file_code):
+        """
+        Описывает назначение файла на основе его имени и содержимого.
+
+        :param file_name: Имя файла.
+        :param file_code: Содержимое файла.
+        :return: Описание назначения файла.
+        """
+        system_prompt = (
+            f"Вы ассистент для анализа PHP-файлов проекта {self.project_type}. "
+            f"Определяйте назначение файлов, классов и методов кратко и по существу."
+        )
+        user_prompt = f"Опишите назначение PHP-файла {file_name} в проекте {self.project_type}."
+        return self.process_code_chunks(file_code, system_prompt, user_prompt)
+
+    def describe_class(self, class_name, class_code):
+        """
+        Описывает назначение класса на основе его имени и содержимого.
+
+        :param class_name: Имя класса.
+        :param class_code: Содержимое кода класса.
+        :return: Описание назначения класса.
+        """
+        system_prompt = (
+            f"Вы ассистент для анализа PHP-классов проекта {self.project_type}. "
+            f"Определяйте назначение классов, методов и их связей кратко и по существу."
+        )
+        user_prompt = f"Опишите назначение PHP-класса {class_name} в проекте {self.project_type}."
+        return self.process_code_chunks(class_code, system_prompt, user_prompt)
+
     def describe_class_method(self, method_name, method_code, class_name, class_description):
         """
         Описывает назначение метода класса на основе его имени, содержимого и описания класса.
@@ -260,10 +247,6 @@ class LLMAssist:
         :param class_description: Описание назначения класса.
         :return: Описание назначения метода.
         """
-        if not self.success:
-            raise RuntimeError("Не удалось инициализировать LLMAssist.")
-
-        # Системный и пользовательский промпты
         system_prompt = (
             f"Вы ассистент для анализа PHP-классов и их методов проекта {self.project_type}. "
             f"Определяйте назначение методов кратко и по существу, с учетом контекста класса."
@@ -272,21 +255,7 @@ class LLMAssist:
             f"Опишите назначение метода {method_name} в классе {class_name} проекта {self.project_type}. "
             f"Описание класса: {class_description}."
         )
-
-        # Разбиваем метод на чанки
-        chunks = self.split_into_chunks(method_code, system_prompt, user_prompt)
-
-        results = []
-        for idx, chunk in enumerate(chunks):
-            user_message = f"Часть {idx + 1}/{len(chunks)}. {user_prompt}\nСодержимое:\n\n{chunk}"
-            try:
-                result = self.query(user_message=user_message, system_message=system_prompt, temperature=0.4)
-                results.append(result)
-            except Exception as e:
-                raise RuntimeError(f"Ошибка при обработке чанка {idx + 1}: {e}")
-
-        # Объединяем результаты
-        return "\n".join(results)
+        return self.process_code_chunks(method_code, system_prompt, user_prompt)
 
     def describe_global_function(self, function_name, function_code, file_name):
         """
@@ -297,10 +266,6 @@ class LLMAssist:
         :param file_name: Имя файла, в котором определена функция.
         :return: Описание назначения функции.
         """
-        if not self.success:
-            raise RuntimeError("Не удалось инициализировать LLMAssist.")
-
-        # Системный и пользовательский промпты
         system_prompt = (
             f"Вы ассистент для анализа PHP-файлов и их глобальных функций в проекте {self.project_type}. "
             f"Определяйте назначение функций кратко и по существу."
@@ -308,18 +273,4 @@ class LLMAssist:
         user_prompt = (
             f"Опишите назначение глобальной функции {function_name}, определённой в файле {file_name} проекта {self.project_type}."
         )
-
-        # Разбиваем функцию на чанки
-        chunks = self.split_into_chunks(function_code, system_prompt, user_prompt)
-
-        results = []
-        for idx, chunk in enumerate(chunks):
-            user_message = f"Часть {idx + 1}/{len(chunks)}. {user_prompt}\nСодержимое:\n\n{chunk}"
-            try:
-                result = self.query(user_message=user_message, system_message=system_prompt, temperature=0.4)
-                results.append(result)
-            except Exception as e:
-                raise RuntimeError(f"Ошибка при обработке чанка {idx + 1}: {e}")
-
-        # Объединяем результаты
-        return "\n".join(results)
+        return self.process_code_chunks(function_code, system_prompt, user_prompt)
