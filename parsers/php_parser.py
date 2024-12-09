@@ -14,99 +14,131 @@ def get_class_qa(llm_assist, class_chunk):
     :param class_chunk: Словарь с информацией о классе.
     :return: Список словарей с вопросами и ответами.
     """
-    # Генерация вопросов на основе данных о классе
+    # Генерация вопросов на основе данных о классе с контекстом
+    description = class_chunk.get("description", "")
+    properties = class_chunk.get("properties", [])
+    methods = class_chunk.get("methods", [])
+
+    # Формирование контекста для свойств и методов
+    properties_list = "\n".join([f"- {prop['name']}" for prop in properties])
+    methods_list = "\n".join([f"- {method['name']}" for method in methods])
+
     questions = [
-        f"Какая основная цель класса {class_chunk['name']}?",
-        f"Какие свойства есть у класса {class_chunk['name']} и для чего они используются?",
-        f"Какие методы предоставляет класс {class_chunk['name']} и как они работают?",
-        f"Какие модификаторы используются в свойствах и методах класса {class_chunk['name']}?",
+        {
+            "question": f"Какая основная цель класса {class_chunk['name']}?",
+            "context": f"Описание класса: {description}" if description else ""
+        },
+        {
+            "question": f"Какие свойства есть у класса {class_chunk['name']} и для чего они используются?",
+            "context": f"Список свойств:\n{properties_list}" if properties else "У класса нет свойств."
+        },
+        {
+            "question": f"Какие методы предоставляет класс {class_chunk['name']} и как они работают?",
+            "context": f"Список методов:\n{methods_list}" if methods else "У класса нет методов."
+        }
     ]
 
-    if class_chunk.get("properties"):
-        for property_chunk in class_chunk["properties"]:
+    # Сбор модификаторов из свойств и методов
+    property_modifiers = [
+        modifier for prop in properties for modifier in prop.get("modifiers", [])
+    ]
+    method_modifiers = [
+        modifier for method in methods for modifier in method.get("modifiers", [])
+    ]
+
+    # Убираем дубликаты и сортируем список модификаторов
+    all_modifiers = sorted(set(property_modifiers + method_modifiers))
+
+    # Формируем контекст на основе собранных модификаторов
+    if all_modifiers:
+        context = (
+            f"В классе {class_chunk['name']} используются следующие модификаторы: "
+            f"{', '.join(all_modifiers)}."
+        )
+    else:
+        context = f"В классе {class_chunk['name']} модификаторы не указаны."
+    questions.append({
+            "question": f"Какие модификаторы используются в свойствах и методах класса {class_chunk['name']}?",
+            "context": context
+        })
+
+    # Добавляем вопросы для каждого свойства
+    if properties:
+        for property_chunk in properties:
             description = property_chunk.get("description", "")
             code = property_chunk.get("code", "")
 
-            # Добавляем описание и код свойства в вопрос, если они есть
-            if description or code:
-                context = " ".join([
-                    f"Описание: {description}" if description else "",
-                    f"Код:\n{code}" if code else ""
-                ]).strip()
-                questions.append(
-                    f"Что делает свойство {property_chunk['name']} в классе {class_chunk['name']}? {context}"
-                )
-            else:
-                questions.append(f"Что делает свойство {property_chunk['name']} в классе {class_chunk['name']}?")
+            context = " ".join([
+                f"Описание: {description}" if description else "",
+                f"Код:\n{code}" if code else ""
+            ]).strip()
+
+            questions.append({
+                "question": f"Что делает свойство {property_chunk['name']} в классе {class_chunk['name']}?",
+                "context": context
+            })
 
             if property_chunk.get("default_value") is not None:
-                questions.append(
-                    f"Какое значение по умолчанию у свойства {property_chunk['name']} в классе {class_chunk['name']}?"
-                )
+                questions.append({
+                    "question": f"Какое значение по умолчанию у свойства {property_chunk['name']} в классе {class_chunk['name']}?",
+                    "context": context
+                })
 
-    if class_chunk.get("methods"):
-        for method_chunk in class_chunk["methods"]:
+    # Добавляем вопросы для каждого метода
+    if methods:
+        for method_chunk in methods:
             description = method_chunk.get("description", "")
             code = method_chunk.get("code", "")
 
-            # Добавляем описание и код метода в вопрос, если они есть
-            if description or code:
-                context = " ".join([
-                    f"Описание: {description}" if description else "",
-                    f"Код:\n{code}" if code else ""
-                ]).strip()
-                questions.append(
-                    f"Какова цель метода {method_chunk['name']} в классе {class_chunk['name']}? {context}"
-                )
-            else:
-                questions.append(f"Какова цель метода {method_chunk['name']} в классе {class_chunk['name']}?")
+            context = " ".join([
+                f"Описание: {description}" if description else "",
+                f"Код:\n{code}" if code else ""
+            ]).strip()
+
+            questions.append({
+                "question": f"Какова цель метода {method_chunk['name']} в классе {class_chunk['name']}?",
+                "context": context
+            })
 
             if method_chunk.get("modifiers"):
-                questions.append(
-                    f"Какие модификаторы используются в методе {method_chunk['name']} класса {class_chunk['name']}?"
-                )
+                questions.append({
+                    "question": f"Какие модификаторы используются в методе {method_chunk['name']} класса {class_chunk['name']}?",
+                    "context": context
+                })
             if method_chunk.get("start_line") is not None and method_chunk.get("end_line") is not None:
-                questions.append(
-                    f"В каких строках определён метод {method_chunk['name']} в классе {class_chunk['name']}?"
-                )
+                questions.append({
+                    "question": f"В каких строках определён метод {method_chunk['name']} в классе {class_chunk['name']}?",
+                    "context": context
+                })
 
-    # Подготовка промпта для модели
-    qa_prompt = (
-        f"Вы ассистент, обучающий на основе кода. Сформулируйте ответы на вопросы о классе {class_chunk['name']} "
-        f"на русском языке. Каждая пара вопрос-ответ должна быть в виде словаря с ключами 'question' и 'answer'. "
-        f"Пример формата:\n"
-        f"[{{'question': 'Ваш вопрос', 'answer': 'Ваш ответ'}}, ...]"
-    )
-
-    # Формируем запрос к модели для получения ответов
+    # Подготовка и выполнение запросов к LLM
+    qa_results = []
     try:
-        llm_responses = []
-        for question in questions:
-            user_message = f"{qa_prompt}\n\nВопрос: {question}"
+        for question_data in questions:
+            question = question_data["question"]
+            context = question_data["context"]
+
+            # Формируем сообщение для модели
+            user_message = (
+                f"Вы ассистент, обучающий на основе кода. Сформулируйте ответ на вопрос о классе {class_chunk['name']} "
+                f"на русском языке. Вопрос: {question}"
+            )
+            if context:
+                user_message += f"\n\nКонтекст:\n{context}"
+
+            # Отправляем запрос к LLM
             response = llm_assist.query(user_message=user_message, temperature=0.5)
-            llm_responses.append(response)
 
-        # Обрабатываем ответы модели
-        qa_pairs = []
-        for response in llm_responses:
-            try:
-                # Пробуем загрузить ответ как JSON, если он в формате словаря
-                parsed_response = json.loads(response)
-                if isinstance(parsed_response, dict):
-                    question_text = parsed_response.get("question") or parsed_response.get(
-                        "prompt") or parsed_response.get("q")
-                    answer_text = parsed_response.get("answer") or parsed_response.get("a") or parsed_response.get(
-                        "output")
-                    if question_text and answer_text:
-                        qa_pairs.append({"question": question_text, "answer": answer_text})
-            except json.JSONDecodeError:
-                # Если JSON парсинг не удался, попробуем вручную обработать
-                qa_pairs.append({"question": question, "answer": response.strip()})
-
-        return qa_pairs
+            # Добавляем результат
+            qa_results.append({
+                "question": question,
+                "answer": response.strip()  # Убираем лишние пробелы и переносы строк
+            })
 
     except Exception as e:
-        raise RuntimeError(f"Ошибка при генерации вопросов и ответов для класса {class_chunk['name']}: {e}")
+        raise RuntimeError(f"Ошибка при генерации QA данных: {e}")
+
+    return qa_results
 
 def parse_php_code(file_path, source_dir, php_parser_script="php_parser.php", project_type=None):
     """
