@@ -172,53 +172,57 @@ class LLMAssist:
         if not self.success:
             raise RuntimeError("Не удалось инициализировать LLMAssist.")
 
-        # Максимальная длина сообщения
-        max_length = 4096
-
         # Если содержимое класса пустое
         if not class_code.strip():
-            user_message = f"Определи назначение PHP-класса {class_name} в проекте {self.project_type}. Код класса отсутствует или пуст."
-            user_messages = [user_message]
+            messages = [{"role": "user",
+                         "content": f"Определи назначение PHP-класса {class_name} в проекте {self.project_type}. Код класса отсутствует или пуст."}]
         else:
-            max_code_length = 3500  # Ограничение на длину содержимого класса для сокращения
-            if len(class_code) > max_code_length:
-                class_code = class_code[:max_code_length] + "\n\n[Содержимое класса сокращено...]"
+            # Разбиваем код на части
+            chunks = [class_code[i:i + self.max_code_length] for i in range(0, len(class_code), self.max_code_length)]
 
-            user_message = (
-                f"Опиши на русском языке назначение PHP-класса {class_name} в проекте {self.project_type}.\n"
-                f"Не цитируй код класса или промпт пользователя.\n"
-                f"Содержимое:\n\n{class_code}"
-            )
+            # Формируем массив сообщений
+            messages = []
+            messages.append({
+                "role": "system",
+                "content": (
+                    f"Вы ассистент для анализа PHP-классов проекта {self.project_type}. "
+                    f"Определяйте назначение классов, методов и их связей кратко и по существу."
+                )
+            })
+            messages.append({
+                "role": "user",
+                "content": f"Опиши на русском языке назначение PHP-класса {class_name}. Содержимое класса разделено на части."
+            })
+            for idx, chunk in enumerate(chunks):
+                messages.append({
+                    "role": "user",
+                    "content": f"Часть {idx + 1}/{len(chunks)}:\n\n{chunk}"
+                })
 
-            # Разделяем сообщение, если оно длиннее max_length
-            user_messages = [user_message[i:i + max_length] for i in range(0, len(user_message), max_length)]
+        # Отправляем запрос
+        try:
+            payload = {
+                "model": self.model_name,
+                "messages": messages,
+                "temperature": 0.4,
+                "max_tokens": 256
+            }
 
-        # Формируем системное сообщение
-        if self.project_type == "yii2":
-            system_message = (
-                "Вы ассистент для анализа PHP-классов в проекте Yii2. Определяйте назначение классов, методов и их связей кратко и по существу."
-            )
-        elif self.project_type == "bitrix":
-            system_message = (
-                "Вы ассистент для анализа PHP-классов в проекте Битрикс. Определяйте назначение классов, методов и их связей кратко и по существу."
-            )
-        elif self.project_type == "python":
-            system_message = (
-                "Вы ассистент для анализа Python-классов. Определяйте назначение классов, методов и их связей кратко и по существу."
-            )
-        else:
-            # Сообщение по умолчанию
-            system_message = (
-                "Вы ассистент для анализа исходного кода классов. Определяйте назначение классов, методов и их связей кратко и по существу."
-            )
+            # Отправляем запрос к LLM
+            response = requests.post(self.server_url, json=payload)
 
-        # Обработка сообщений по частям
-        result = ""
-        for part in user_messages:
-            response = self.query(user_message=part, system_message=system_message, max_tokens=256, temperature=0.4)
-            result += response.strip() + "\n"
+            # Проверяем ответ
+            if response.status_code != 200:
+                raise RuntimeError(f"Ошибка запроса к LLM: {response.status_code} - {response.text}")
 
-        return result.strip()
+            response_data = response.json()
+            if "choices" in response_data and len(response_data["choices"]) > 0:
+                return response_data["choices"][0]["message"].get("content", "Нет текста в ответе.")
+            else:
+                raise ValueError(f"Некорректный ответ модели: {response_data}")
+
+        except Exception as e:
+            raise RuntimeError(f"Ошибка при взаимодействии с LLM: {e}")
 
     def describe_class_method(self, method_name, method_code, class_name, class_description):
         """
@@ -233,61 +237,61 @@ class LLMAssist:
         if not self.success:
             raise RuntimeError("Не удалось инициализировать LLMAssist.")
 
-        # Максимальная длина сообщения
-        max_length = 4096
-
         # Если содержимое метода пустое
         if not method_code.strip():
-            user_message = (
-                f"Определи назначение метода {method_name} в классе {class_name} проекта {self.project_type}.\n"
-                f"Код метода отсутствует или пуст. Класс описан как: {class_description}."
-            )
-            user_messages = [user_message]
+            messages = [{"role": "user",
+                         "content": f"Определи назначение метода {method_name} в классе {class_name} проекта {self.project_type}. "
+                                    f"Код метода отсутствует или пуст. Класс описан как: {class_description}."}]
         else:
-            max_code_length = 3500  # Ограничение на длину содержимого метода для сокращения
-            if len(method_code) > max_code_length:
-                method_code = method_code[:max_code_length] + "\n\n[Содержимое метода сокращено...]"
+            # Разбиваем код на части
+            chunks = [method_code[i:i + self.max_code_length] for i in range(0, len(method_code), self.max_code_length)]
 
-            user_message = (
-                f"Опиши на русском языке назначение метода {method_name} в классе {class_name} проекта {self.project_type}.\n"
-                f"Класс описан как: {class_description}.\n"
-                f"Не цитируй код метода или промпт пользователя.\n"
-                f"Содержимое метода:\n\n{method_code}"
-            )
+            # Формируем массив сообщений
+            messages = []
+            messages.append({
+                "role": "system",
+                "content": (
+                    f"Вы ассистент для анализа PHP-классов и их методов проекта {self.project_type}. "
+                    f"Определяйте назначение методов кратко и по существу, с учетом контекста класса."
+                )
+            })
+            messages.append({
+                "role": "user",
+                "content": (
+                    f"Опиши на русском языке назначение метода {method_name} в классе {class_name}. "
+                    f"Описание класса: {class_description}. Содержимое метода разделено на части."
+                )
+            })
+            for idx, chunk in enumerate(chunks):
+                messages.append({
+                    "role": "user",
+                    "content": f"Часть {idx + 1}/{len(chunks)}:\n\n{chunk}"
+                })
 
-            # Разделяем сообщение, если оно длиннее max_length
-            user_messages = [user_message[i:i + max_length] for i in range(0, len(user_message), max_length)]
+        # Отправляем запрос
+        try:
+            payload = {
+                "model": self.model_name,
+                "messages": messages,
+                "temperature": 0.4,
+                "max_tokens": 256
+            }
 
-        # Формируем системное сообщение
-        if self.project_type == "yii2":
-            system_message = (
-                "Вы ассистент для анализа PHP-классов и их методов в проекте Yii2. "
-                "Определяйте назначение методов кратко и по существу, с учетом контекста класса."
-            )
-        elif self.project_type == "bitrix":
-            system_message = (
-                "Вы ассистент для анализа PHP-классов и их методов в проекте Битрикс. "
-                "Определяйте назначение методов кратко и по существу, с учетом контекста класса."
-            )
-        elif self.project_type == "python":
-            system_message = (
-                "Вы ассистент для анализа Python-проектов. "
-                "Определяйте назначение классов, методов и функций кратко и по существу, с учетом их кода и контекста."
-            )
-        else:
-            # Сообщение по умолчанию
-            system_message = (
-                "Вы ассистент для анализа исходного кода. "
-                "Определяйте назначение элементов кода кратко и по существу, с учетом их контекста."
-            )
+            # Отправляем запрос к LLM
+            response = requests.post(self.server_url, json=payload)
 
-        # Обработка сообщений по частям
-        result = ""
-        for part in user_messages:
-            response = self.query(user_message=part, system_message=system_message, max_tokens=256, temperature=0.4)
-            result += response.strip() + "\n"
+            # Проверяем ответ
+            if response.status_code != 200:
+                raise RuntimeError(f"Ошибка запроса к LLM: {response.status_code} - {response.text}")
 
-        return result.strip()
+            response_data = response.json()
+            if "choices" in response_data and len(response_data["choices"]) > 0:
+                return response_data["choices"][0]["message"].get("content", "Нет текста в ответе.")
+            else:
+                raise ValueError(f"Некорректный ответ модели: {response_data}")
+
+        except Exception as e:
+            raise RuntimeError(f"Ошибка при взаимодействии с LLM: {e}")
 
     def describe_global_function(self, function_name, function_code, file_name):
         """
@@ -301,57 +305,56 @@ class LLMAssist:
         if not self.success:
             raise RuntimeError("Не удалось инициализировать LLMAssist.")
 
-        # Максимальная длина сообщения
-        max_length = 4096
-
         # Если содержимое функции пустое
         if not function_code.strip():
-            user_message = (
-                f"Определи назначение глобальной функции {function_name}, определённой в файле {file_name} проекта {self.project_type}.\n"
-                f"Код функции отсутствует или пуст."
-            )
-            user_messages = [user_message]
+            messages = [{"role": "user",
+                         "content": f"Определи назначение глобальной функции {function_name}, определённой в файле {file_name} проекта {self.project_type}. "
+                                    f"Код функции отсутствует или пуст."}]
         else:
-            max_code_length = 3500  # Ограничение на длину содержимого функции для сокращения
-            if len(function_code) > max_code_length:
-                function_code = function_code[:max_code_length] + "\n\n[Содержимое функции сокращено...]"
+            # Разбиваем код на части
+            chunks = [function_code[i:i + self.max_code_length] for i in
+                      range(0, len(function_code), self.max_code_length)]
 
-            user_message = (
-                f"Опиши на русском языке назначение глобальной функции {function_name}, определённой в файле {file_name} проекта {self.project_type}.\n"
-                f"Не цитируй код функции или промпт пользователя.\n"
-                f"Содержимое функции:\n\n{function_code}"
-            )
+            # Формируем массив сообщений
+            messages = []
+            messages.append({
+                "role": "system",
+                "content": (
+                    f"Вы ассистент для анализа PHP-файлов и их глобальных функций в проекте {self.project_type}. "
+                    f"Определяйте назначение функций кратко и по существу."
+                )
+            })
+            messages.append({
+                "role": "user",
+                "content": f"Опиши на русском языке назначение глобальной функции {function_name}, определённой в файле {file_name}. Содержимое функции разделено на части."
+            })
+            for idx, chunk in enumerate(chunks):
+                messages.append({
+                    "role": "user",
+                    "content": f"Часть {idx + 1}/{len(chunks)}:\n\n{chunk}"
+                })
 
-            # Разделяем сообщение, если оно длиннее max_length
-            user_messages = [user_message[i:i + max_length] for i in range(0, len(user_message), max_length)]
+        # Отправляем запрос
+        try:
+            payload = {
+                "model": self.model_name,
+                "messages": messages,
+                "temperature": 0.4,
+                "max_tokens": 256
+            }
 
-        # Формируем системное сообщение в зависимости от типа проекта
-        if self.project_type == "yii2":
-            system_message = (
-                "Вы ассистент для анализа PHP-проектов в Yii2. "
-                "Определяйте назначение глобальных функций кратко и по существу, с учетом их кода и контекста."
-            )
-        elif self.project_type == "bitrix":
-            system_message = (
-                "Вы ассистент для анализа PHP-проектов в Битрикс. "
-                "Определяйте назначение глобальных функций кратко и по существу, с учетом их кода и контекста."
-            )
-        elif self.project_type == "python":
-            system_message = (
-                "Вы ассистент для анализа Python-проектов. "
-                "Определяйте назначение глобальных функций кратко и по существу, с учетом их кода и контекста."
-            )
-        else:
-            # Сообщение по умолчанию
-            system_message = (
-                "Вы ассистент для анализа исходного кода. "
-                "Определяйте назначение элементов кода кратко и по существу, с учетом их контекста."
-            )
+            # Отправляем запрос к LLM
+            response = requests.post(self.server_url, json=payload)
 
-        # Обработка сообщений по частям
-        result = ""
-        for part in user_messages:
-            response = self.query(user_message=part, system_message=system_message, max_tokens=256, temperature=0.4)
-            result += response.strip() + "\n"
+            # Проверяем ответ
+            if response.status_code != 200:
+                raise RuntimeError(f"Ошибка запроса к LLM: {response.status_code} - {response.text}")
 
-        return result.strip()
+            response_data = response.json()
+            if "choices" in response_data and len(response_data["choices"]) > 0:
+                return response_data["choices"][0]["message"].get("content", "Нет текста в ответе.")
+            else:
+                raise ValueError(f"Некорректный ответ модели: {response_data}")
+
+        except Exception as e:
+            raise RuntimeError(f"Ошибка при взаимодействии с LLM: {e}")
