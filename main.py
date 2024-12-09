@@ -6,6 +6,7 @@ from extractors.python_extractor import PythonExtractor
 from extractors.yii2_extractor import Yii2Extractor
 from extractors.react_extractor import ReactExtractor
 from extractors.bitrix_extractor import BitrixExtractor
+from utils.qa_manager import QAManager
 
 # Загрузка конфигурации
 load_dotenv()
@@ -125,6 +126,8 @@ def main():
         # Сохранение всех данных
         logger.info("Сохранение всех данных...")
         json_manager.save_all(group_by="metadata.source", max_summary_file_size=MAX_SUMMARY_FILE_SIZE)
+        qa_manager = QAManager()
+        qa_manager.save_to_jsonl()
         logger.info("Все данные успешно сохранены.")
 
     except Exception as e:

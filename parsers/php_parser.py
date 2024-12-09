@@ -4,6 +4,7 @@ import os
 from utils.common import generate_id
 from datetime import datetime
 from utils.llm_assist import LLMAssist
+from utils.qa_manager import QAManager
 
 
 def get_class_qa(llm_assist, class_chunk):
@@ -113,6 +114,7 @@ def get_class_qa(llm_assist, class_chunk):
 
     # Подготовка и выполнение запросов к LLM
     qa_results = []
+    qa_manager = QAManager()
     try:
         for question_data in questions:
             question = question_data["question"]
@@ -134,6 +136,8 @@ def get_class_qa(llm_assist, class_chunk):
                 "question": question,
                 "answer": response.strip()  # Убираем лишние пробелы и переносы строк
             })
+
+            qa_manager.add_qa(question, response.strip())
 
     except Exception as e:
         raise RuntimeError(f"Ошибка при генерации QA данных: {e}")
