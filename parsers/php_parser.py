@@ -61,7 +61,7 @@ def parse_php_code(file_path, source_dir, php_parser_script="php_parser.php", pr
     # Формируем данные о классах
     for class_data in parsed_data.get("classes", []):
         if llm_assist.success:
-            description = llm_assist.describe_class(class_data["name"], class_data.get("code"))
+            description = llm_assist.describe_class(class_data["name"], class_data.get("code"), relative_path)
         else:
             description = f"Class definition: {class_data['name']}"
 

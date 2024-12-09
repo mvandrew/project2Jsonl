@@ -222,19 +222,23 @@ class LLMAssist:
         user_prompt = f"Опишите назначение PHP-файла {file_name} в проекте {self.project_type}."
         return self.process_code_chunks(file_code, system_prompt, user_prompt)
 
-    def describe_class(self, class_name, class_code):
+    def describe_class(self, class_name, class_code, file_path):
         """
-        Описывает назначение класса на основе его имени и содержимого.
+        Описывает назначение класса на основе его имени, содержимого и пути к файлу.
 
         :param class_name: Имя класса.
         :param class_code: Содержимое кода класса.
+        :param file_path: Путь к файлу, в котором находится класс.
         :return: Описание назначения класса.
         """
         system_prompt = (
             f"Вы ассистент для анализа PHP-классов проекта {self.project_type}. "
             f"Определяйте назначение классов, методов и их связей кратко и по существу."
         )
-        user_prompt = f"Опишите назначение PHP-класса {class_name} в проекте {self.project_type}."
+        user_prompt = (
+            f"Опишите назначение PHP-класса {class_name}, определённого в файле {file_path}, "
+            f"в проекте {self.project_type}."
+        )
         return self.process_code_chunks(class_code, system_prompt, user_prompt)
 
     def describe_class_method(self, method_name, method_code, class_name, class_description):
