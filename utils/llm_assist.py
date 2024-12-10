@@ -98,7 +98,8 @@ class LLMAssist:
             "model": self.model_name,
             "messages": messages,
             "temperature": temperature,
-            "max_tokens": max_tokens
+            "max_tokens": max_tokens,
+            "stream": False
         }
 
         # Преобразование payload в строку для использования в кэшировании
